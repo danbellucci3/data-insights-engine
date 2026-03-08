@@ -73,7 +73,7 @@ export default function Dashboard() {
     setDataLoading(true);
 
     // Stats
-    const statsPromises: Promise<any>[] = [];
+    const statsPromises: PromiseLike<any>[] = [];
     const statsKeys: string[] = [];
 
     if (has("investimentos")) {
