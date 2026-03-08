@@ -194,17 +194,18 @@ export default function Dashboard() {
         </div>
         <div className="flex items-center gap-2">
           <DashboardExport targetRef={dashboardRef} />
-        <Select value={selectedEmpresa} onValueChange={setSelectedEmpresa}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Todas as empresas" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas as empresas</SelectItem>
-            {empresas.map((e) => (
-              <SelectItem key={e} value={e}>{e}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          <Select value={selectedEmpresa} onValueChange={setSelectedEmpresa}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Todas as empresas" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as empresas</SelectItem>
+              {empresas.map((e) => (
+                <SelectItem key={e} value={e}>{e}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Summary cards */}
