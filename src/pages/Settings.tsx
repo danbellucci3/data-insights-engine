@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Shield, Users, Pencil } from "lucide-react";
+import { Plus, Trash2, Shield, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 const ALL_TABLES = [
@@ -29,6 +29,12 @@ type AccessProfile = {
   tables: string[];
 };
 
+type UserInfo = {
+  user_id: string;
+  display_name: string | null;
+  email: string | null;
+};
+
 export default function SettingsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -41,11 +47,8 @@ export default function SettingsPage() {
   const [description, setDescription] = useState("");
   const [selectedTables, setSelectedTables] = useState<string[]>([]);
 
-  // User assignment
-  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
-  const [assignProfileId, setAssignProfileId] = useState("");
-  const [assignEmail, setAssignEmail] = useState("");
-  const [assignments, setAssignments] = useState<any[]>([]);
+  const [allUsers, setAllUsers] = useState<UserInfo[]>([]);
+  const [userProfileMap, setUserProfileMap] = useState<Record<string, string>>({}); // user_id -> profile_id
 
   useEffect(() => {
     if (!user) return;
@@ -58,7 +61,7 @@ export default function SettingsPage() {
     setIsAdmin(admin);
     if (admin) {
       loadProfiles();
-      loadAssignments();
+      loadUsers();
     }
     setLoading(false);
   };
@@ -83,9 +86,21 @@ export default function SettingsPage() {
     setProfiles(profilesWithTables);
   };
 
-  const loadAssignments = async () => {
-    const { data } = await supabase.from("user_access_profiles").select("*, access_profiles(name)");
-    setAssignments(data || []);
+  const loadUsers = async () => {
+    // Load all users from profiles table (admin can see all)
+    const { data: usersData } = await supabase
+      .from("profiles")
+      .select("user_id, display_name, email")
+      .order("display_name");
+    setAllUsers(usersData || []);
+
+    // Load all assignments
+    const { data: assignData } = await supabase
+      .from("user_access_profiles")
+      .select("user_id, profile_id");
+    const map: Record<string, string> = {};
+    assignData?.forEach((a) => { map[a.user_id] = a.profile_id; });
+    setUserProfileMap(map);
   };
 
   const openCreate = () => {
@@ -106,7 +121,6 @@ export default function SettingsPage() {
 
   const saveProfile = async () => {
     if (!name.trim()) return;
-
     try {
       if (editingProfile) {
         await supabase.from("access_profiles").update({ name, description }).eq("id", editingProfile.id);
@@ -141,62 +155,35 @@ export default function SettingsPage() {
     await supabase.from("access_profiles").delete().eq("id", id);
     toast({ title: "Perfil excluído" });
     loadProfiles();
-    loadAssignments();
+    loadUsers();
   };
 
-  const assignUser = async () => {
-    if (!assignEmail.trim() || !assignProfileId) return;
-    const search = assignEmail.trim().toLowerCase();
+  const assignProfileToUser = async (userId: string, profileId: string) => {
+    // Remove existing assignment
+    await supabase.from("user_access_profiles").delete().eq("user_id", userId);
 
-    // Search by email or display_name
-    const { data: byEmail } = await supabase
-      .from("profiles")
-      .select("user_id")
-      .ilike("email", search)
-      .limit(1);
-
-    let targetUserId = byEmail?.[0]?.user_id || null;
-
-    if (!targetUserId) {
-      const { data: byName } = await supabase
-        .from("profiles")
-        .select("user_id")
-        .ilike("display_name", `%${search}%`)
-        .limit(1);
-      targetUserId = byName?.[0]?.user_id || null;
-    }
-
-    if (!targetUserId) {
-      toast({ title: "Usuário não encontrado", description: "Verifique o nome ou email do usuário.", variant: "destructive" });
-      return;
-    }
-
-    const { error } = await supabase.from("user_access_profiles").insert({
-      user_id: targetUserId,
-      profile_id: assignProfileId,
-      assigned_by: user!.id,
-    });
-
-    if (error) {
-      if (error.code === "23505") {
-        toast({ title: "Já atribuído", description: "Este usuário já possui este perfil.", variant: "destructive" });
-      } else {
-        toast({ title: "Erro", description: error.message, variant: "destructive" });
+    if (profileId && profileId !== "none") {
+      const { error } = await supabase.from("user_access_profiles").insert({
+        user_id: userId,
+        profile_id: profileId,
+        assigned_by: user!.id,
+      });
+      if (error) {
+        toast({ title: "Erro ao atribuir", description: error.message, variant: "destructive" });
+        return;
       }
-      return;
     }
 
-    toast({ title: "Perfil atribuído ao usuário" });
-    setAssignDialogOpen(false);
-    setAssignEmail("");
-    setAssignProfileId("");
-    loadAssignments();
-  };
-
-  const removeAssignment = async (id: string) => {
-    await supabase.from("user_access_profiles").delete().eq("id", id);
-    toast({ title: "Atribuição removida" });
-    loadAssignments();
+    setUserProfileMap((prev) => {
+      const next = { ...prev };
+      if (profileId && profileId !== "none") {
+        next[userId] = profileId;
+      } else {
+        delete next[userId];
+      }
+      return next;
+    });
+    toast({ title: "Perfil atualizado" });
   };
 
   const toggleTable = (table: string) => {
@@ -322,62 +309,35 @@ export default function SettingsPage() {
 
       {/* User Assignments */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="text-base">Atribuições de Usuários</CardTitle>
-            <CardDescription>Associe usuários a perfis de acesso.</CardDescription>
-          </div>
-          <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" disabled={profiles.length === 0}>
-                <Users className="mr-2 h-4 w-4" /> Atribuir Perfil
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Atribuir Perfil a Usuário</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Nome ou email do usuário</Label>
-                  <Input value={assignEmail} onChange={(e) => setAssignEmail(e.target.value)} placeholder="Ex: João ou joao@email.com" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Perfil de acesso</Label>
-                  <Select value={assignProfileId} onValueChange={setAssignProfileId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione um perfil" />
+        <CardHeader>
+          <CardTitle className="text-base">Atribuições de Usuários</CardTitle>
+          <CardDescription>Selecione o perfil de acesso de cada usuário cadastrado.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {allUsers.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">Nenhum usuário cadastrado.</p>
+          ) : (
+            <div className="space-y-3">
+              {allUsers.map((u) => (
+                <div key={u.user_id} className="flex items-center justify-between rounded-lg border p-4 gap-4">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">{u.display_name || "Sem nome"}</p>
+                    <p className="text-xs text-muted-foreground truncate">{u.email || u.user_id.slice(0, 12) + "..."}</p>
+                  </div>
+                  <Select
+                    value={userProfileMap[u.user_id] || "none"}
+                    onValueChange={(val) => assignProfileToUser(u.user_id, val)}
+                  >
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="Sem perfil" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="none">Sem perfil (padrão)</SelectItem>
                       {profiles.map((p) => (
                         <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
-                <Button onClick={assignUser} className="w-full" disabled={!assignEmail.trim() || !assignProfileId}>
-                  Atribuir
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </CardHeader>
-        <CardContent>
-          {assignments.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">Nenhuma atribuição realizada.</p>
-          ) : (
-            <div className="space-y-2">
-              {assignments.map((a) => (
-                <div key={a.id} className="flex items-center justify-between rounded-lg border p-3">
-                  <div className="text-sm">
-                    <span className="font-medium">Usuário: </span>
-                    <span className="text-muted-foreground">{a.user_id.slice(0, 8)}...</span>
-                    <span className="mx-2">→</span>
-                    <Badge variant="secondary">{a.access_profiles?.name || "Perfil removido"}</Badge>
-                  </div>
-                  <Button variant="ghost" size="icon" onClick={() => removeAssignment(a.id)}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
                 </div>
               ))}
             </div>
