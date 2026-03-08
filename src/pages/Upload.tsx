@@ -136,10 +136,10 @@ export default function UploadPage() {
               <label className="flex cursor-pointer items-center gap-3 rounded-lg border-2 border-dashed border-border p-6 transition-colors hover:border-primary/50 hover:bg-muted/50">
                 <UploadIcon className="h-8 w-8 text-muted-foreground" />
                 <div>
-                  <p className="font-medium">{fileName || "Clique para selecionar o arquivo CSV"}</p>
-                  <p className="text-sm text-muted-foreground">Formato: .csv com cabeçalhos</p>
+                  <p className="font-medium">{fileName || "Clique para selecionar o arquivo"}</p>
+                  <p className="text-sm text-muted-foreground">Formatos: .csv, .xls, .xlsx</p>
                 </div>
-                <input type="file" accept=".csv" className="hidden" onChange={handleFile} />
+                <input type="file" accept=".csv,.xls,.xlsx" className="hidden" onChange={handleFile} />
               </label>
             </div>
           )}
