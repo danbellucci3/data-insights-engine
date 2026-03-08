@@ -29,12 +29,18 @@ function parseExcelDate(value: string): Date | null {
 
 const SAFRA_KEYS = new Set(["safra"]);
 
+function normalize(s: string): string {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[_\s]+/g, " ").trim().toLowerCase();
+}
+
 function mapRows(rawRows: Record<string, any>[], schema: TableSchema): Record<string, any>[] {
   return rawRows.map((row) => {
     const mapped: Record<string, any> = {};
     schema.columns.forEach((col) => {
+      const colLabelNorm = normalize(col.label);
+      const colKeyNorm = normalize(col.key);
       const csvKey = Object.keys(row).find(
-        (k) => k.trim().toLowerCase() === col.label.toLowerCase() || k.trim().toLowerCase() === col.key.toLowerCase()
+        (k) => { const n = normalize(k); return n === colLabelNorm || n === colKeyNorm; }
       );
       let value: any = csvKey ? row[csvKey]?.toString().trim() : "";
 
