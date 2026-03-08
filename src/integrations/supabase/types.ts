@@ -14,16 +14,389 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      balanco: {
+        Row: {
+          ativo_circulante: number | null
+          ativo_nao_circulante: number | null
+          created_at: string
+          empresa: string
+          id: string
+          passivo_circulante: number | null
+          passivo_nao_circulante: number | null
+          patrimonio_liquido: number | null
+          safra: string | null
+          user_id: string
+        }
+        Insert: {
+          ativo_circulante?: number | null
+          ativo_nao_circulante?: number | null
+          created_at?: string
+          empresa: string
+          id?: string
+          passivo_circulante?: number | null
+          passivo_nao_circulante?: number | null
+          patrimonio_liquido?: number | null
+          safra?: string | null
+          user_id: string
+        }
+        Update: {
+          ativo_circulante?: number | null
+          ativo_nao_circulante?: number | null
+          created_at?: string
+          empresa?: string
+          id?: string
+          passivo_circulante?: number | null
+          passivo_nao_circulante?: number | null
+          patrimonio_liquido?: number | null
+          safra?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      chat_conversations: {
+        Row: {
+          created_at: string
+          id: string
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      chat_messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "chat_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dre: {
+        Row: {
+          created_at: string
+          custos: number | null
+          despesa: number | null
+          ebitda: number | null
+          empresa: string
+          faturamento: number | null
+          id: string
+          impostos: number | null
+          lucro_liquido: number | null
+          safra: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          custos?: number | null
+          despesa?: number | null
+          ebitda?: number | null
+          empresa: string
+          faturamento?: number | null
+          id?: string
+          impostos?: number | null
+          lucro_liquido?: number | null
+          safra?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          custos?: number | null
+          despesa?: number | null
+          ebitda?: number | null
+          empresa?: string
+          faturamento?: number | null
+          id?: string
+          impostos?: number | null
+          lucro_liquido?: number | null
+          safra?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      fluxo_de_caixa: {
+        Row: {
+          created_at: string
+          data: string | null
+          empresa: string
+          id: string
+          saldo_conta_corrente: number | null
+          total_entradas: number | null
+          total_saidas: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          data?: string | null
+          empresa: string
+          id?: string
+          saldo_conta_corrente?: number | null
+          total_entradas?: number | null
+          total_saidas?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          data?: string | null
+          empresa?: string
+          id?: string
+          saldo_conta_corrente?: number | null
+          total_entradas?: number | null
+          total_saidas?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      folha_de_pagamento: {
+        Row: {
+          created_at: string
+          empresa: string
+          id: string
+          nome_funcionario: string | null
+          safra: string | null
+          tipo_recebimento: string | null
+          user_id: string
+          valor: number | null
+        }
+        Insert: {
+          created_at?: string
+          empresa: string
+          id?: string
+          nome_funcionario?: string | null
+          safra?: string | null
+          tipo_recebimento?: string | null
+          user_id: string
+          valor?: number | null
+        }
+        Update: {
+          created_at?: string
+          empresa?: string
+          id?: string
+          nome_funcionario?: string | null
+          safra?: string | null
+          tipo_recebimento?: string | null
+          user_id?: string
+          valor?: number | null
+        }
+        Relationships: []
+      }
+      fornecedores: {
+        Row: {
+          created_at: string
+          data_fim_contrato: string | null
+          data_inicio_contrato: string | null
+          empresa: string
+          id: string
+          nome_fornecedor: string | null
+          safra: string | null
+          user_id: string
+          valor_contrato: number | null
+        }
+        Insert: {
+          created_at?: string
+          data_fim_contrato?: string | null
+          data_inicio_contrato?: string | null
+          empresa: string
+          id?: string
+          nome_fornecedor?: string | null
+          safra?: string | null
+          user_id: string
+          valor_contrato?: number | null
+        }
+        Update: {
+          created_at?: string
+          data_fim_contrato?: string | null
+          data_inicio_contrato?: string | null
+          empresa?: string
+          id?: string
+          nome_fornecedor?: string | null
+          safra?: string | null
+          user_id?: string
+          valor_contrato?: number | null
+        }
+        Relationships: []
+      }
+      investimentos: {
+        Row: {
+          ativo: string | null
+          aux1: string | null
+          banco: string | null
+          carencia: string | null
+          created_at: string
+          data: string | null
+          empresa: string
+          id: string
+          id_lancamento: string | null
+          imposto_renda: number | null
+          receita_bruta_dia: number | null
+          remuneracao_dia_cdi: number | null
+          tipo_lancamento: string | null
+          user_id: string
+          valor_bruto: number | null
+        }
+        Insert: {
+          ativo?: string | null
+          aux1?: string | null
+          banco?: string | null
+          carencia?: string | null
+          created_at?: string
+          data?: string | null
+          empresa: string
+          id?: string
+          id_lancamento?: string | null
+          imposto_renda?: number | null
+          receita_bruta_dia?: number | null
+          remuneracao_dia_cdi?: number | null
+          tipo_lancamento?: string | null
+          user_id: string
+          valor_bruto?: number | null
+        }
+        Update: {
+          ativo?: string | null
+          aux1?: string | null
+          banco?: string | null
+          carencia?: string | null
+          created_at?: string
+          data?: string | null
+          empresa?: string
+          id?: string
+          id_lancamento?: string | null
+          imposto_renda?: number | null
+          receita_bruta_dia?: number | null
+          remuneracao_dia_cdi?: number | null
+          tipo_lancamento?: string | null
+          user_id?: string
+          valor_bruto?: number | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      projetos: {
+        Row: {
+          created_at: string
+          empresa: string
+          id: string
+          nome_projeto: string | null
+          safra: string | null
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          empresa: string
+          id?: string
+          nome_projeto?: string | null
+          safra?: string | null
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          empresa?: string
+          id?: string
+          nome_projeto?: string | null
+          safra?: string | null
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +523,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+    },
   },
 } as const
