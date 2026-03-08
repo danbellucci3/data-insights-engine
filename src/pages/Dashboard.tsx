@@ -48,18 +48,46 @@ export default function Dashboard() {
       return q;
     };
 
-    const [inv, dre, folha, fluxo] = await Promise.all([
+    const [inv, dre, folha] = await Promise.all([
       filter(supabase.from("investimentos").select("valor_bruto")),
       filter(supabase.from("dre").select("faturamento")),
       filter(supabase.from("folha_de_pagamento").select("nome_funcionario")),
-      filter(supabase.from("fluxo_de_caixa").select("saldo_conta_corrente").order("data", { ascending: false }).limit(1)),
     ]);
+
+    // Calculate saldo: get latest entry per company
+    let saldoCaixa = 0;
+    if (selectedEmpresa !== "all") {
+      const { data: fluxo } = await supabase
+        .from("fluxo_de_caixa")
+        .select("saldo_conta_corrente")
+        .eq("user_id", user!.id)
+        .eq("empresa", selectedEmpresa)
+        .order("data", { ascending: false })
+        .limit(1);
+      saldoCaixa = fluxo?.[0]?.saldo_conta_corrente || 0;
+    } else {
+      // Get latest saldo per company
+      const { data: allFluxo } = await supabase
+        .from("fluxo_de_caixa")
+        .select("empresa, data, saldo_conta_corrente")
+        .eq("user_id", user!.id)
+        .order("data", { ascending: false });
+      if (allFluxo) {
+        const latestPerEmpresa = new Map<string, number>();
+        for (const row of allFluxo) {
+          if (!latestPerEmpresa.has(row.empresa)) {
+            latestPerEmpresa.set(row.empresa, row.saldo_conta_corrente || 0);
+          }
+        }
+        saldoCaixa = Array.from(latestPerEmpresa.values()).reduce((sum, v) => sum + v, 0);
+      }
+    }
 
     setStats({
       totalInvestimentos: inv.data?.reduce((sum, r) => sum + (r.valor_bruto || 0), 0) || 0,
       totalFaturamento: dre.data?.reduce((sum, r) => sum + (r.faturamento || 0), 0) || 0,
       totalFuncionarios: new Set(folha.data?.map((r) => r.nome_funcionario)).size,
-      saldoCaixa: fluxo.data?.[0]?.saldo_conta_corrente || 0,
+      saldoCaixa,
     });
   };
 
