@@ -186,12 +186,14 @@ export default function Dashboard() {
     balancoData.length > 0 || folhaData.length > 0 || projetosData.length > 0 || fornecedoresData.length > 0;
 
   return (
-    <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
+    <div ref={dashboardRef} className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold">Dashboard</h1>
           <p className="text-muted-foreground">Visão geral dos seus dados financeiros.</p>
         </div>
+        <div className="flex items-center gap-2">
+          <DashboardExport targetRef={dashboardRef} />
         <Select value={selectedEmpresa} onValueChange={setSelectedEmpresa}>
           <SelectTrigger className="w-48">
             <SelectValue placeholder="Todas as empresas" />
