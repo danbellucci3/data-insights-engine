@@ -113,7 +113,7 @@ export default function UploadPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Selecionar Tabela</CardTitle>
-          <CardDescription>Escolha a tabela e faça upload do CSV correspondente.</CardDescription>
+          <CardDescription>Escolha a tabela e faça upload do arquivo correspondente.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Select value={selectedTable} onValueChange={(v) => { setSelectedTable(v); setPreviewData([]); setFileName(""); }}>
