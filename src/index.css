@@ -105,3 +105,17 @@
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
   }
 }
+
+/* Prose table styles for chat */
+.prose table {
+  @apply w-full border-collapse text-sm my-3;
+}
+.prose thead th {
+  @apply border-b-2 border-border bg-muted/50 px-3 py-2 text-left font-semibold text-foreground;
+}
+.prose tbody td {
+  @apply border-b border-border px-3 py-2 text-muted-foreground;
+}
+.prose tbody tr:hover {
+  @apply bg-muted/30;
+}

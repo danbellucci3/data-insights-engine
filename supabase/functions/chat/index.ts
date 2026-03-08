@@ -47,6 +47,10 @@ INSTRUÇÕES:
 - Se os dados não contiverem informação suficiente, informe isso
 - Faça cálculos quando necessário (somas, médias, comparações)
 - Seja conciso mas completo
+- Quando houver dados tabulares, SEMPRE use tabelas markdown (com | e ---) para exibir os dados de forma organizada. Exemplo:
+| Coluna A | Coluna B |
+|---|---|
+| Valor 1 | Valor 2 |
 
 GRÁFICOS:
 Quando o usuário pedir um gráfico, visualização ou comparação visual, inclua um bloco de código especial com a linguagem "chart" contendo JSON válido. Formato:
