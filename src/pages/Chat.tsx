@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { Send, Bot, User, Loader2 } from "lucide-react";
+import ChatChart, { parseChartBlocks } from "@/components/ChatChart";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
