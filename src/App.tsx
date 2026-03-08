@@ -9,6 +9,7 @@ import Auth from "@/pages/Auth";
 import Dashboard from "@/pages/Dashboard";
 import UploadPage from "@/pages/Upload";
 import ChatPage from "@/pages/Chat";
+import DataPage from "@/pages/Data";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
