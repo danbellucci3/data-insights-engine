@@ -105,7 +105,7 @@ export default function Dashboard() {
     }
 
     // Chart data
-    const chartPromises: Promise<any>[] = [];
+    const chartPromises: PromiseLike<any>[] = [];
     const chartKeys: string[] = [];
 
     if (has("dre")) {
