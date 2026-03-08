@@ -10,6 +10,7 @@ import Dashboard from "@/pages/Dashboard";
 import UploadPage from "@/pages/Upload";
 import ChatPage from "@/pages/Chat";
 import DataPage from "@/pages/Data";
+import SettingsPage from "@/pages/Settings";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
