@@ -146,22 +146,24 @@ export default function SettingsPage() {
 
   const assignUser = async () => {
     if (!assignEmail.trim() || !assignProfileId) return;
-    // Look up user by email in profiles table
-    const { data: profileData } = await supabase
+    const search = assignEmail.trim().toLowerCase();
+
+    // Search by email or display_name
+    const { data: byEmail } = await supabase
       .from("profiles")
       .select("user_id")
-      .ilike("display_name", assignEmail.trim());
+      .ilike("email", search)
+      .limit(1);
 
-    // Try looking up by checking if display_name contains email or matches
-    let targetUserId: string | null = null;
+    let targetUserId = byEmail?.[0]?.user_id || null;
 
-    // Search across all known user emails from auth metadata
-    const { data: allProfiles } = await supabase.from("profiles").select("user_id, display_name");
-    if (allProfiles) {
-      const match = allProfiles.find((p) =>
-        p.display_name?.toLowerCase().includes(assignEmail.toLowerCase())
-      );
-      if (match) targetUserId = match.user_id;
+    if (!targetUserId) {
+      const { data: byName } = await supabase
+        .from("profiles")
+        .select("user_id")
+        .ilike("display_name", `%${search}%`)
+        .limit(1);
+      targetUserId = byName?.[0]?.user_id || null;
     }
 
     if (!targetUserId) {
