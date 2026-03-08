@@ -10,6 +10,7 @@ const navItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/upload", icon: Upload, label: "Importar Dados" },
   { to: "/dados", icon: Database, label: "Dados" },
+  { to: "/configuracoes", icon: Settings, label: "Configurações" },
 ];
 
 export default function AppLayout({ children }: { children: ReactNode }) {
