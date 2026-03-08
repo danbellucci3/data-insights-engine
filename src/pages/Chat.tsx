@@ -142,7 +142,7 @@ export default function ChatPage() {
                       seg.type === "chart" ? (
                         <ChatChart key={j} chart={seg.value} />
                       ) : (
-                        <ReactMarkdown key={j}>{seg.value}</ReactMarkdown>
+                        <ReactMarkdown key={j} remarkPlugins={[remarkGfm]}>{seg.value}</ReactMarkdown>
                       )
                     )}
                   </div>
