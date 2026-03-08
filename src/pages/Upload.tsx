@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import Papa from "papaparse";
+import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { tableSchemas, TableSchema } from "@/lib/csv-schemas";
@@ -11,6 +12,30 @@ import { useToast } from "@/hooks/use-toast";
 import { Upload as UploadIcon, FileSpreadsheet, Trash2, CheckCircle2 } from "lucide-react";
 
 type ValidTableName = "investimentos" | "dre" | "balanco" | "fluxo_de_caixa" | "folha_de_pagamento" | "projetos" | "fornecedores";
+
+function mapRows(rawRows: Record<string, any>[], schema: TableSchema): Record<string, any>[] {
+  return rawRows.map((row) => {
+    const mapped: Record<string, any> = {};
+    schema.columns.forEach((col) => {
+      const csvKey = Object.keys(row).find(
+        (k) => k.trim().toLowerCase() === col.label.toLowerCase() || k.trim().toLowerCase() === col.key.toLowerCase()
+      );
+      let value: any = csvKey ? row[csvKey]?.toString().trim() : "";
+      if (col.type === "number" && value) {
+        value = parseFloat(value.replace(/[^\d.,-]/g, "").replace(",", "."));
+        if (isNaN(value)) value = null;
+      }
+      if (col.type === "date" && value) {
+        const parts = value.split("/");
+        if (parts.length === 3) {
+          value = `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+        }
+      }
+      mapped[col.key] = value === "" ? null : value;
+    });
+    return mapped;
+  });
+}
 
 export default function UploadPage() {
   const { user } = useAuth();
@@ -28,36 +53,33 @@ export default function UploadPage() {
       if (!file || !schema) return;
       setFileName(file.name);
 
-      Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
-        complete: (results) => {
-          const mapped = results.data.map((row: any) => {
-            const mapped: Record<string, any> = {};
-            schema.columns.forEach((col) => {
-              const csvKey = Object.keys(row).find(
-                (k) => k.trim().toLowerCase() === col.label.toLowerCase() || k.trim().toLowerCase() === col.key.toLowerCase()
-              );
-              let value = csvKey ? row[csvKey]?.toString().trim() : "";
-              if (col.type === "number" && value) {
-                value = parseFloat(value.replace(/[^\\d.,-]/g, "").replace(",", "."));
-                if (isNaN(value)) value = null;
-              }
-              if (col.type === "date" && value) {
-                // Try to parse date, keep as string
-                const parts = value.split("/");
-                if (parts.length === 3) {
-                  value = `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
-                }
-              }
-              mapped[col.key] = value === "" ? null : value;
-            });
-            return mapped;
-          });
-          setPreviewData(mapped.slice(0, 100));
-        },
-        error: () => toast({ title: "Erro ao ler CSV", variant: "destructive" }),
-      });
+      const ext = file.name.split(".").pop()?.toLowerCase();
+
+      if (ext === "csv") {
+        Papa.parse(file, {
+          header: true,
+          skipEmptyLines: true,
+          complete: (results) => {
+            setPreviewData(mapRows(results.data as Record<string, any>[], schema).slice(0, 100));
+          },
+          error: () => toast({ title: "Erro ao ler CSV", variant: "destructive" }),
+        });
+      } else if (ext === "xls" || ext === "xlsx") {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          try {
+            const wb = XLSX.read(evt.target?.result, { type: "array" });
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const rawRows = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { defval: "" });
+            setPreviewData(mapRows(rawRows, schema).slice(0, 100));
+          } catch {
+            toast({ title: "Erro ao ler planilha", variant: "destructive" });
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      } else {
+        toast({ title: "Formato não suportado", description: "Use .csv, .xls ou .xlsx", variant: "destructive" });
+      }
     },
     [schema, toast]
   );
@@ -85,13 +107,13 @@ export default function UploadPage() {
     <div className="p-6 md:p-8 max-w-6xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Importar Dados</h1>
-        <p className="text-muted-foreground">Faça upload de arquivos CSV para alimentar suas tabelas.</p>
+        <p className="text-muted-foreground">Faça upload de arquivos CSV ou Excel para alimentar suas tabelas.</p>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Selecionar Tabela</CardTitle>
-          <CardDescription>Escolha a tabela e faça upload do CSV correspondente.</CardDescription>
+          <CardDescription>Escolha a tabela e faça upload do arquivo correspondente.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Select value={selectedTable} onValueChange={(v) => { setSelectedTable(v); setPreviewData([]); setFileName(""); }}>
@@ -114,10 +136,10 @@ export default function UploadPage() {
               <label className="flex cursor-pointer items-center gap-3 rounded-lg border-2 border-dashed border-border p-6 transition-colors hover:border-primary/50 hover:bg-muted/50">
                 <UploadIcon className="h-8 w-8 text-muted-foreground" />
                 <div>
-                  <p className="font-medium">{fileName || "Clique para selecionar o arquivo CSV"}</p>
-                  <p className="text-sm text-muted-foreground">Formato: .csv com cabeçalhos</p>
+                  <p className="font-medium">{fileName || "Clique para selecionar o arquivo"}</p>
+                  <p className="text-sm text-muted-foreground">Formatos: .csv, .xls, .xlsx</p>
                 </div>
-                <input type="file" accept=".csv" className="hidden" onChange={handleFile} />
+                <input type="file" accept=".csv,.xls,.xlsx" className="hidden" onChange={handleFile} />
               </label>
             </div>
           )}
