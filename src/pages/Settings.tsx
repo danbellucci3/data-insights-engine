@@ -41,10 +41,9 @@ export default function SettingsPage() {
   const [description, setDescription] = useState("");
   const [selectedTables, setSelectedTables] = useState<string[]>([]);
 
-  // User assignment
-  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
-  const [assignProfileId, setAssignProfileId] = useState("");
-  const [assignEmail, setAssignEmail] = useState("");
+  // All users list
+  const [allUsers, setAllUsers] = useState<{ user_id: string; display_name: string | null; email: string | null }[]>([]);
+  const [userProfileMap, setUserProfileMap] = useState<Record<string, string>>({}); // user_id -> profile_id
   const [assignments, setAssignments] = useState<any[]>([]);
 
   useEffect(() => {
