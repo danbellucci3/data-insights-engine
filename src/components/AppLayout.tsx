@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { BarChart3, Upload, MessageSquare, LayoutDashboard, LogOut, Database } from "lucide-react";
+import { BarChart3, Upload, MessageSquare, LayoutDashboard, LogOut, Database, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
