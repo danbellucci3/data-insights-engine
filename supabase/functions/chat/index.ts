@@ -24,26 +24,49 @@ serve(async (req) => {
       "folha_de_pagamento", "projetos", "fornecedores"
     ];
 
+    // Tables restricted by default (when user has no profile assigned)
+    const defaultRestrictedTables = ["folha_de_pagamento"];
+
     // Check user's access profile
     const { data: userProfiles } = await supabase
       .from("user_access_profiles")
       .select("profile_id")
       .eq("user_id", userId);
 
-    let allowedTables = allTables; // Default: all tables (admin or no profile assigned)
-    let restrictedTables: string[] = [];
+    let allowedTables: string[];
+    let restrictedTables: string[];
 
     if (userProfiles && userProfiles.length > 0) {
+      // User has profile(s) assigned — use profile permissions
       const profileIds = userProfiles.map((p: any) => p.profile_id);
       const { data: profileTables } = await supabase
         .from("access_profile_tables")
         .select("table_name")
         .in("profile_id", profileIds);
 
-      if (profileTables) {
+      if (profileTables && profileTables.length > 0) {
         allowedTables = [...new Set(profileTables.map((t: any) => t.table_name))];
         restrictedTables = allTables.filter(t => !allowedTables.includes(t));
+      } else {
+        // Profile exists but no tables assigned
+        allowedTables = allTables.filter(t => !defaultRestrictedTables.includes(t));
+        restrictedTables = defaultRestrictedTables;
       }
+    } else {
+      // No profile assigned — apply default restrictions
+      allowedTables = allTables.filter(t => !defaultRestrictedTables.includes(t));
+      restrictedTables = defaultRestrictedTables;
+    }
+
+    // Check if user is admin (admins get full access)
+    const { data: roles } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId);
+    const isAdmin = roles?.some((r: any) => r.role === "admin");
+    if (isAdmin) {
+      allowedTables = allTables;
+      restrictedTables = [];
     }
 
     const dataContext: Record<string, any[]> = {};
