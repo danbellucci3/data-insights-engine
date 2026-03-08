@@ -17,6 +17,7 @@ const COLORS = [
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const dashboardRef = useRef<HTMLDivElement>(null);
   const [empresas, setEmpresas] = useState<string[]>([]);
   const [selectedEmpresa, setSelectedEmpresa] = useState<string>("all");
   const [stats, setStats] = useState({
