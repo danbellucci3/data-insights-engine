@@ -26,9 +26,18 @@ function mapRows(rawRows: Record<string, any>[], schema: TableSchema): Record<st
         if (isNaN(value)) value = null;
       }
       if (col.type === "date" && value) {
-        const parts = value.split("/");
-        if (parts.length === 3) {
-          value = `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+        // Handle Excel serial date numbers
+        const num = Number(value);
+        if (!isNaN(num) && num > 10000) {
+          const excelEpoch = new Date(1899, 11, 30);
+          const d = new Date(excelEpoch.getTime() + num * 86400000);
+          value = d.toISOString().split("T")[0];
+        } else {
+          // Handle dd/mm/yyyy
+          const parts = value.split("/");
+          if (parts.length === 3) {
+            value = `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+          }
         }
       }
       mapped[col.key] = value === "" ? null : value;
