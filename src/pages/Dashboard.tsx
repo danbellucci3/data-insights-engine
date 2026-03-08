@@ -93,7 +93,7 @@ export default function Dashboard() {
         statsPromises.push(
           supabase.from("fluxo_de_caixa").select("saldo_conta_corrente")
             .eq("user_id", user!.id).eq("empresa", selectedEmpresa)
-            .order("data", { ascending: false }).limit(1)
+            .order("data", { ascending: false }).limit(1).then(r => r)
         );
       } else {
         statsPromises.push(
