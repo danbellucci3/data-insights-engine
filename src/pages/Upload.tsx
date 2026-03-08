@@ -13,6 +13,22 @@ import { Upload as UploadIcon, FileSpreadsheet, Trash2, CheckCircle2 } from "luc
 
 type ValidTableName = "investimentos" | "dre" | "balanco" | "fluxo_de_caixa" | "folha_de_pagamento" | "projetos" | "fornecedores";
 
+function parseExcelDate(value: string): Date | null {
+  const num = Number(value);
+  if (!isNaN(num) && num > 10000) {
+    const excelEpoch = new Date(1899, 11, 30);
+    return new Date(excelEpoch.getTime() + num * 86400000);
+  }
+  // dd/mm/yyyy
+  const parts = value.split("/");
+  if (parts.length === 3) {
+    return new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+  }
+  return null;
+}
+
+const SAFRA_KEYS = new Set(["safra"]);
+
 function mapRows(rawRows: Record<string, any>[], schema: TableSchema): Record<string, any>[] {
   return rawRows.map((row) => {
     const mapped: Record<string, any> = {};
@@ -21,25 +37,27 @@ function mapRows(rawRows: Record<string, any>[], schema: TableSchema): Record<st
         (k) => k.trim().toLowerCase() === col.label.toLowerCase() || k.trim().toLowerCase() === col.key.toLowerCase()
       );
       let value: any = csvKey ? row[csvKey]?.toString().trim() : "";
-      if (col.type === "number" && value) {
+
+      if (SAFRA_KEYS.has(col.key) && value) {
+        // Safra: convert to mm/yyyy for display, store as mm/yyyy
+        const d = parseExcelDate(value);
+        if (d) {
+          value = `${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+        } else if (/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
+          // Already dd/mm/yyyy, convert to mm/yyyy
+          const parts = value.split("/");
+          value = `${parts[1]}/${parts[2]}`;
+        }
+      } else if (col.type === "number" && value) {
         value = parseFloat(value.replace(/[^\d.,-]/g, "").replace(",", "."));
         if (isNaN(value)) value = null;
-      }
-      if (col.type === "date" && value) {
-        // Handle Excel serial date numbers
-        const num = Number(value);
-        if (!isNaN(num) && num > 10000) {
-          const excelEpoch = new Date(1899, 11, 30);
-          const d = new Date(excelEpoch.getTime() + num * 86400000);
+      } else if (col.type === "date" && value) {
+        const d = parseExcelDate(value);
+        if (d) {
           value = d.toISOString().split("T")[0];
-        } else {
-          // Handle dd/mm/yyyy
-          const parts = value.split("/");
-          if (parts.length === 3) {
-            value = `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
-          }
         }
       }
+
       mapped[col.key] = value === "" ? null : value;
     });
     return mapped;
