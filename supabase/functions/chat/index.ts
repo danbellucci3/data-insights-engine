@@ -15,23 +15,61 @@ serve(async (req) => {
 
     const { messages, userId } = await req.json();
 
-    // Fetch user data from all tables to provide context
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const tables = [
+    const allTables = [
       "investimentos", "dre", "balanco", "fluxo_de_caixa",
       "folha_de_pagamento", "projetos", "fornecedores"
     ];
 
-    const dataContext: Record<string, any[]> = {};
-    for (const table of tables) {
-      const { data } = await supabase.from(table).select("*").eq("user_id", userId).limit(500);
-      if (data && data.length > 0) {
-        dataContext[table] = data.map(({ user_id, id, created_at, ...rest }) => rest);
+    // Check user's access profile
+    const { data: userProfiles } = await supabase
+      .from("user_access_profiles")
+      .select("profile_id")
+      .eq("user_id", userId);
+
+    let allowedTables = allTables; // Default: all tables (admin or no profile assigned)
+    let restrictedTables: string[] = [];
+
+    if (userProfiles && userProfiles.length > 0) {
+      const profileIds = userProfiles.map((p: any) => p.profile_id);
+      const { data: profileTables } = await supabase
+        .from("access_profile_tables")
+        .select("table_name")
+        .in("profile_id", profileIds);
+
+      if (profileTables) {
+        allowedTables = [...new Set(profileTables.map((t: any) => t.table_name))];
+        restrictedTables = allTables.filter(t => !allowedTables.includes(t));
       }
     }
+
+    const dataContext: Record<string, any[]> = {};
+    for (const table of allowedTables) {
+      const { data } = await supabase.from(table).select("*").eq("user_id", userId).limit(500);
+      if (data && data.length > 0) {
+        dataContext[table] = data.map(({ user_id, id, created_at, ...rest }: any) => rest);
+      }
+    }
+
+    const tableLabels: Record<string, string> = {
+      investimentos: "Investimentos",
+      dre: "DRE",
+      balanco: "Balanço",
+      fluxo_de_caixa: "Fluxo de Caixa",
+      folha_de_pagamento: "Folha de Pagamento",
+      projetos: "Projetos",
+      fornecedores: "Fornecedores",
+    };
+
+    const restrictedInfo = restrictedTables.length > 0
+      ? `\n\nTABELAS RESTRITAS (o usuário NÃO tem acesso):
+${restrictedTables.map(t => `- ${tableLabels[t] || t}`).join("\n")}
+
+IMPORTANTE: Se o usuário perguntar sobre dados dessas tabelas restritas, informe educadamente que ele não tem permissão para acessar esses dados conforme seu perfil de acesso. Não invente dados dessas tabelas.`
+      : "";
 
     const systemPrompt = `Você é um assistente financeiro inteligente. Analise os dados do usuário e responda perguntas de forma clara e precisa em português brasileiro.
 
@@ -39,6 +77,7 @@ DADOS DO USUÁRIO:
 ${Object.entries(dataContext).map(([table, rows]) => 
   `\n### ${table.toUpperCase()} (${rows.length} registros):\n${JSON.stringify(rows, null, 2)}`
 ).join("\n")}
+${restrictedInfo}
 
 INSTRUÇÕES:
 - Responda sempre em português brasileiro
