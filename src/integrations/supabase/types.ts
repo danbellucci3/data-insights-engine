@@ -14,6 +14,65 @@ export type Database = {
   }
   public: {
     Tables: {
+      access_profile_tables: {
+        Row: {
+          access_level: string
+          created_at: string
+          id: string
+          profile_id: string
+          table_name: string
+        }
+        Insert: {
+          access_level?: string
+          created_at?: string
+          id?: string
+          profile_id: string
+          table_name: string
+        }
+        Update: {
+          access_level?: string
+          created_at?: string
+          id?: string
+          profile_id?: string
+          table_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "access_profile_tables_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "access_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      access_profiles: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       balanco: {
         Row: {
           ativo_circulante: number | null
@@ -363,6 +422,38 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_access_profiles: {
+        Row: {
+          assigned_by: string
+          created_at: string
+          id: string
+          profile_id: string
+          user_id: string
+        }
+        Insert: {
+          assigned_by: string
+          created_at?: string
+          id?: string
+          profile_id: string
+          user_id: string
+        }
+        Update: {
+          assigned_by?: string
+          created_at?: string
+          id?: string
+          profile_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_access_profiles_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "access_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {

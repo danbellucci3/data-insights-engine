@@ -10,6 +10,7 @@ import Dashboard from "@/pages/Dashboard";
 import UploadPage from "@/pages/Upload";
 import ChatPage from "@/pages/Chat";
 import DataPage from "@/pages/Data";
+import SettingsPage from "@/pages/Settings";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -41,6 +42,7 @@ const App = () => (
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/upload" element={<ProtectedRoute><UploadPage /></ProtectedRoute>} />
             <Route path="/dados" element={<ProtectedRoute><DataPage /></ProtectedRoute>} />
+            <Route path="/configuracoes" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
