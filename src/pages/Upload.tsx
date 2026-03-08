@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import Papa from "papaparse";
+import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { tableSchemas, TableSchema } from "@/lib/csv-schemas";
@@ -11,6 +12,30 @@ import { useToast } from "@/hooks/use-toast";
 import { Upload as UploadIcon, FileSpreadsheet, Trash2, CheckCircle2 } from "lucide-react";
 
 type ValidTableName = "investimentos" | "dre" | "balanco" | "fluxo_de_caixa" | "folha_de_pagamento" | "projetos" | "fornecedores";
+
+function mapRows(rawRows: Record<string, any>[], schema: TableSchema): Record<string, any>[] {
+  return rawRows.map((row) => {
+    const mapped: Record<string, any> = {};
+    schema.columns.forEach((col) => {
+      const csvKey = Object.keys(row).find(
+        (k) => k.trim().toLowerCase() === col.label.toLowerCase() || k.trim().toLowerCase() === col.key.toLowerCase()
+      );
+      let value: any = csvKey ? row[csvKey]?.toString().trim() : "";
+      if (col.type === "number" && value) {
+        value = parseFloat(value.replace(/[^\d.,-]/g, "").replace(",", "."));
+        if (isNaN(value)) value = null;
+      }
+      if (col.type === "date" && value) {
+        const parts = value.split("/");
+        if (parts.length === 3) {
+          value = `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+        }
+      }
+      mapped[col.key] = value === "" ? null : value;
+    });
+    return mapped;
+  });
+}
 
 export default function UploadPage() {
   const { user } = useAuth();
@@ -28,36 +53,33 @@ export default function UploadPage() {
       if (!file || !schema) return;
       setFileName(file.name);
 
-      Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
-        complete: (results) => {
-          const mapped = results.data.map((row: any) => {
-            const mapped: Record<string, any> = {};
-            schema.columns.forEach((col) => {
-              const csvKey = Object.keys(row).find(
-                (k) => k.trim().toLowerCase() === col.label.toLowerCase() || k.trim().toLowerCase() === col.key.toLowerCase()
-              );
-              let value = csvKey ? row[csvKey]?.toString().trim() : "";
-              if (col.type === "number" && value) {
-                value = parseFloat(value.replace(/[^\\d.,-]/g, "").replace(",", "."));
-                if (isNaN(value)) value = null;
-              }
-              if (col.type === "date" && value) {
-                // Try to parse date, keep as string
-                const parts = value.split("/");
-                if (parts.length === 3) {
-                  value = `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
-                }
-              }
-              mapped[col.key] = value === "" ? null : value;
-            });
-            return mapped;
-          });
-          setPreviewData(mapped.slice(0, 100));
-        },
-        error: () => toast({ title: "Erro ao ler CSV", variant: "destructive" }),
-      });
+      const ext = file.name.split(".").pop()?.toLowerCase();
+
+      if (ext === "csv") {
+        Papa.parse(file, {
+          header: true,
+          skipEmptyLines: true,
+          complete: (results) => {
+            setPreviewData(mapRows(results.data as Record<string, any>[], schema).slice(0, 100));
+          },
+          error: () => toast({ title: "Erro ao ler CSV", variant: "destructive" }),
+        });
+      } else if (ext === "xls" || ext === "xlsx") {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          try {
+            const wb = XLSX.read(evt.target?.result, { type: "array" });
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const rawRows = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { defval: "" });
+            setPreviewData(mapRows(rawRows, schema).slice(0, 100));
+          } catch {
+            toast({ title: "Erro ao ler planilha", variant: "destructive" });
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      } else {
+        toast({ title: "Formato não suportado", description: "Use .csv, .xls ou .xlsx", variant: "destructive" });
+      }
     },
     [schema, toast]
   );
