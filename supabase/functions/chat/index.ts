@@ -46,7 +46,23 @@ INSTRUÇÕES:
 - Formate valores monetários no padrão brasileiro (R$ X.XXX,XX)
 - Se os dados não contiverem informação suficiente, informe isso
 - Faça cálculos quando necessário (somas, médias, comparações)
-- Seja conciso mas completo`;
+- Seja conciso mas completo
+
+GRÁFICOS:
+Quando o usuário pedir um gráfico, visualização ou comparação visual, inclua um bloco de código especial com a linguagem "chart" contendo JSON válido. Formato:
+\`\`\`chart
+{
+  "type": "bar" ou "line",
+  "title": "Título do gráfico",
+  "xKey": "nome_da_chave_do_eixo_x",
+  "series": [{"key": "chave_valor", "label": "Rótulo exibido"}],
+  "data": [{"chave_x": "valor", "chave_valor": 123}, ...]
+}
+\`\`\`
+- Use "bar" para comparações e "line" para evolução temporal
+- Os valores em "data" devem ser numéricos (sem formatação)
+- Sempre agregue/calcule os dados antes de montar o gráfico
+- Você pode incluir texto explicativo antes e/ou depois do bloco chart`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",

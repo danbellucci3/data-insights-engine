@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { Send, Bot, User, Loader2 } from "lucide-react";
+import ChatChart, { parseChartBlocks } from "@/components/ChatChart";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -136,7 +137,13 @@ export default function ChatPage() {
               <Card className={`max-w-[80%] p-4 ${msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-card"}`}>
                 {msg.role === "assistant" ? (
                   <div className="prose prose-sm max-w-none dark:prose-invert">
-                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    {parseChartBlocks(msg.content).map((seg, j) =>
+                      seg.type === "chart" ? (
+                        <ChatChart key={j} chart={seg.value} />
+                      ) : (
+                        <ReactMarkdown key={j}>{seg.value}</ReactMarkdown>
+                      )
+                    )}
                   </div>
                 ) : (
                   <p className="text-sm">{msg.content}</p>
