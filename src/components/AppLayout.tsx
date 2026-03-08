@@ -6,10 +6,10 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 const navItems = [
-  { to: "/", icon: LayoutDashboard, label: "Dashboard" },
+  { to: "/", icon: MessageSquare, label: "Chat IA" },
+  { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/upload", icon: Upload, label: "Importar Dados" },
   { to: "/dados", icon: Database, label: "Dados" },
-  { to: "/chat", icon: MessageSquare, label: "Chat IA" },
 ];
 
 export default function AppLayout({ children }: { children: ReactNode }) {
