@@ -21,6 +21,7 @@ export const tableSchemas: TableSchema[] = [
       { key: "remuneracao_dia_cdi", label: "Remuneração Dia (%CDI)", type: "number" },
       { key: "aux1", label: "Aux1", type: "text" },
       { key: "carencia", label: "Carência", type: "text" },
+      { key: "visao", label: "Visão", type: "text" },
     ],
   },
   {
