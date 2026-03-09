@@ -98,6 +98,7 @@ export const tableSchemas: TableSchema[] = [
       { key: "data_inicio_contrato", label: "Data Início Contrato", type: "date" },
       { key: "data_fim_contrato", label: "Data Fim Contrato", type: "date" },
       { key: "valor_contrato", label: "Valor Contrato", type: "number" },
+      { key: "visao", label: "Visão", type: "text" },
     ],
   },
 ];
