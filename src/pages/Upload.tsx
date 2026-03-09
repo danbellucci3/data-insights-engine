@@ -167,6 +167,27 @@ export default function UploadPage() {
 
       <Card>
         <CardHeader>
+          <CardTitle className="text-lg">Modelos de Planilha</CardTitle>
+          <CardDescription>Baixe um modelo em branco para cada tabela e preencha com seus dados.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {tableSchemas.map((schema) => (
+              <Button
+                key={schema.name}
+                variant="outline"
+                size="sm"
+                onClick={() => downloadTemplate(schema)}
+                className="flex flex-col items-center gap-2 h-auto py-3"
+              >
+                <Download className="h-4 w-4" />
+                <span className="text-xs text-center">{schema.label}</span>
+              </Button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+        <CardHeader>
           <CardTitle className="text-lg">Selecionar Tabela</CardTitle>
           <CardDescription>Escolha a tabela e faça upload do arquivo correspondente.</CardDescription>
         </CardHeader>
