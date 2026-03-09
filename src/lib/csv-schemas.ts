@@ -62,6 +62,7 @@ export const tableSchemas: TableSchema[] = [
       { key: "total_entradas", label: "Total de Entradas", type: "number" },
       { key: "total_saidas", label: "Total de Saídas", type: "number" },
       { key: "saldo_conta_corrente", label: "Saldo Conta Corrente", type: "number" },
+      { key: "visao", label: "Visão", type: "text" },
     ],
   },
   {
