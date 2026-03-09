@@ -74,6 +74,7 @@ export const tableSchemas: TableSchema[] = [
       { key: "nome_funcionario", label: "Nome do Funcionário", type: "text" },
       { key: "tipo_recebimento", label: "Tipo de Recebimento", type: "text" },
       { key: "valor", label: "Valor", type: "number" },
+      { key: "visao", label: "Visão", type: "text" },
     ],
   },
   {
