@@ -36,6 +36,7 @@ export const tableSchemas: TableSchema[] = [
       { key: "impostos", label: "Impostos", type: "number" },
       { key: "ebitda", label: "EBITDA", type: "number" },
       { key: "lucro_liquido", label: "Lucro Líquido", type: "number" },
+      { key: "visao", label: "Visão", type: "text" },
     ],
   },
   {
