@@ -102,12 +102,20 @@ ${Object.entries(dataContext).map(([table, rows]) =>
 ).join("\n")}
 ${restrictedInfo}
 
+ANÁLISE DE VISÕES (REAL vs ORÇADO vs FORECAST):
+Quando houver dados com diferentes visões (real, orçado, forecast) na mesma tabela:
+- SEMPRE compare os valores entre as visões automaticamente
+- Calcule desvios percentuais: (Real - Orçado) / Orçado * 100
+- Identifique tendências e variações significativas
+- Destaque os maiores desvios (positivos e negativos)
+- Use gráficos comparativos quando apropriado
+
 INSTRUÇÕES:
 - Responda sempre em português brasileiro
 - Use formatação markdown para organizar a resposta
 - Formate valores monetários no padrão brasileiro (R$ X.XXX,XX)
 - Se os dados não contiverem informação suficiente, informe isso
-- Faça cálculos quando necessário (somas, médias, comparações)
+- Faça cálculos quando necessário (somas, médias, comparações, desvios)
 - Seja conciso mas completo
 - Quando houver dados tabulares, SEMPRE use tabelas markdown (com | e ---) para exibir os dados de forma organizada. Exemplo:
 | Coluna A | Coluna B |
@@ -128,7 +136,8 @@ Quando o usuário pedir um gráfico, visualização ou comparação visual, incl
 - Use "bar" para comparações e "line" para evolução temporal
 - Os valores em "data" devem ser numéricos (sem formatação)
 - Sempre agregue/calcule os dados antes de montar o gráfico
-- Você pode incluir texto explicativo antes e/ou depois do bloco chart`;
+- Você pode incluir texto explicativo antes e/ou depois do bloco chart
+- Para comparar visões, crie gráficos com múltiplas séries (Real, Orçado, Forecast)`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",

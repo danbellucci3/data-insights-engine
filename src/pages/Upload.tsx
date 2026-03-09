@@ -74,6 +74,7 @@ export default function UploadPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [selectedTable, setSelectedTable] = useState<string>("");
+  const [selectedVisao, setSelectedVisao] = useState<"real" | "orçado" | "forecast">("real");
   const [previewData, setPreviewData] = useState<Record<string, any>[]>([]);
   const [importing, setImporting] = useState(false);
   const [fileName, setFileName] = useState("");
@@ -122,7 +123,11 @@ export default function UploadPage() {
     setImporting(true);
 
     const tableName = schema.name as ValidTableName;
-    const rows = previewData.map((row) => ({ ...row, user_id: user.id }));
+    const rows = previewData.map((row) => ({ 
+      ...row, 
+      user_id: user.id,
+      visao: selectedVisao 
+    }));
 
     const { error } = await supabase.from(tableName).insert(rows as any);
 
@@ -149,19 +154,35 @@ export default function UploadPage() {
           <CardDescription>Escolha a tabela e faça upload do arquivo correspondente.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Select value={selectedTable} onValueChange={(v) => { setSelectedTable(v); setPreviewData([]); setFileName(""); }}>
-            <SelectTrigger className="w-full max-w-xs">
-              <SelectValue placeholder="Selecione a tabela..." />
-            </SelectTrigger>
-            <SelectContent>
-              {tableSchemas.map((s) => (
-                <SelectItem key={s.name} value={s.name}>{s.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex gap-4">
+            <Select value={selectedTable} onValueChange={(v) => { setSelectedTable(v); setPreviewData([]); setFileName(""); }}>
+              <SelectTrigger className="w-full max-w-xs">
+                <SelectValue placeholder="Selecione a tabela..." />
+              </SelectTrigger>
+              <SelectContent>
+                {tableSchemas.map((s) => (
+                  <SelectItem key={s.name} value={s.name}>{s.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={selectedVisao} onValueChange={(v) => setSelectedVisao(v as "real" | "orçado" | "forecast")}>
+              <SelectTrigger className="w-full max-w-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="real">Real</SelectItem>
+                <SelectItem value="orçado">Orçado</SelectItem>
+                <SelectItem value="forecast">Forecast</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
           {schema && (
             <div className="space-y-3">
+              <div className="text-sm text-muted-foreground">
+                <strong>Tabela:</strong> {schema.label} | <strong>Visão:</strong> {selectedVisao.charAt(0).toUpperCase() + selectedVisao.slice(1)}
+              </div>
               <div className="text-sm text-muted-foreground">
                 <strong>Colunas esperadas:</strong>{" "}
                 {schema.columns.map((c) => c.label).join(", ")}

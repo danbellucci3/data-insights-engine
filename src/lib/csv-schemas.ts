@@ -21,6 +21,7 @@ export const tableSchemas: TableSchema[] = [
       { key: "remuneracao_dia_cdi", label: "Remuneração Dia (%CDI)", type: "number" },
       { key: "aux1", label: "Aux1", type: "text" },
       { key: "carencia", label: "Carência", type: "text" },
+      { key: "visao", label: "Visão", type: "text" },
     ],
   },
   {
@@ -35,6 +36,7 @@ export const tableSchemas: TableSchema[] = [
       { key: "impostos", label: "Impostos", type: "number" },
       { key: "ebitda", label: "EBITDA", type: "number" },
       { key: "lucro_liquido", label: "Lucro Líquido", type: "number" },
+      { key: "visao", label: "Visão", type: "text" },
     ],
   },
   {
@@ -48,6 +50,7 @@ export const tableSchemas: TableSchema[] = [
       { key: "passivo_circulante", label: "Passivo Circulante", type: "number" },
       { key: "passivo_nao_circulante", label: "Passivo Não Circulante", type: "number" },
       { key: "patrimonio_liquido", label: "Patrimônio Líquido", type: "number" },
+      { key: "visao", label: "Visão", type: "text" },
     ],
   },
   {
@@ -59,6 +62,7 @@ export const tableSchemas: TableSchema[] = [
       { key: "total_entradas", label: "Total de Entradas", type: "number" },
       { key: "total_saidas", label: "Total de Saídas", type: "number" },
       { key: "saldo_conta_corrente", label: "Saldo Conta Corrente", type: "number" },
+      { key: "visao", label: "Visão", type: "text" },
     ],
   },
   {
@@ -70,6 +74,7 @@ export const tableSchemas: TableSchema[] = [
       { key: "nome_funcionario", label: "Nome do Funcionário", type: "text" },
       { key: "tipo_recebimento", label: "Tipo de Recebimento", type: "text" },
       { key: "valor", label: "Valor", type: "number" },
+      { key: "visao", label: "Visão", type: "text" },
     ],
   },
   {
@@ -80,6 +85,7 @@ export const tableSchemas: TableSchema[] = [
       { key: "safra", label: "Safra", type: "text" },
       { key: "nome_projeto", label: "Nome Projeto", type: "text" },
       { key: "status", label: "Status", type: "text" },
+      { key: "visao", label: "Visão", type: "text" },
     ],
   },
   {
@@ -92,6 +98,7 @@ export const tableSchemas: TableSchema[] = [
       { key: "data_inicio_contrato", label: "Data Início Contrato", type: "date" },
       { key: "data_fim_contrato", label: "Data Fim Contrato", type: "date" },
       { key: "valor_contrato", label: "Valor Contrato", type: "number" },
+      { key: "visao", label: "Visão", type: "text" },
     ],
   },
 ];
