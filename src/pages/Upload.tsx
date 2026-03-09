@@ -187,6 +187,8 @@ export default function UploadPage() {
           </div>
         </CardContent>
       </Card>
+
+      <Card>
         <CardHeader>
           <CardTitle className="text-lg">Selecionar Tabela</CardTitle>
           <CardDescription>Escolha a tabela e faça upload do arquivo correspondente.</CardDescription>
