@@ -118,6 +118,23 @@ export default function UploadPage() {
     [schema, toast]
   );
 
+  const downloadTemplate = (tableSchema: TableSchema) => {
+    const headers = tableSchema.columns.map((c) => c.label);
+    const exampleRow = tableSchema.columns.map((c) => {
+      if (c.key === "visao") return "real";
+      if (c.type === "number") return "0";
+      if (c.type === "date") return "01/01/2024";
+      return "Exemplo";
+    });
+    
+    const ws = XLSX.utils.aoa_to_sheet([headers, exampleRow]);
+    ws["!cols"] = headers.map(() => ({ wch: 18 }));
+    
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Dados");
+    XLSX.writeFile(wb, `modelo_${tableSchema.name}.xlsx`);
+  };
+
   const handleImport = async () => {
     if (!user || !schema || previewData.length === 0) return;
     setImporting(true);
