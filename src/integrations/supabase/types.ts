@@ -85,6 +85,7 @@ export type Database = {
           patrimonio_liquido: number | null
           safra: string | null
           user_id: string
+          visao: Database["public"]["Enums"]["visao_tipo"]
         }
         Insert: {
           ativo_circulante?: number | null
@@ -97,6 +98,7 @@ export type Database = {
           patrimonio_liquido?: number | null
           safra?: string | null
           user_id: string
+          visao?: Database["public"]["Enums"]["visao_tipo"]
         }
         Update: {
           ativo_circulante?: number | null
@@ -109,6 +111,7 @@ export type Database = {
           patrimonio_liquido?: number | null
           safra?: string | null
           user_id?: string
+          visao?: Database["public"]["Enums"]["visao_tipo"]
         }
         Relationships: []
       }
@@ -184,6 +187,7 @@ export type Database = {
           lucro_liquido: number | null
           safra: string | null
           user_id: string
+          visao: Database["public"]["Enums"]["visao_tipo"]
         }
         Insert: {
           created_at?: string
@@ -197,6 +201,7 @@ export type Database = {
           lucro_liquido?: number | null
           safra?: string | null
           user_id: string
+          visao?: Database["public"]["Enums"]["visao_tipo"]
         }
         Update: {
           created_at?: string
@@ -210,6 +215,7 @@ export type Database = {
           lucro_liquido?: number | null
           safra?: string | null
           user_id?: string
+          visao?: Database["public"]["Enums"]["visao_tipo"]
         }
         Relationships: []
       }
@@ -223,6 +229,7 @@ export type Database = {
           total_entradas: number | null
           total_saidas: number | null
           user_id: string
+          visao: Database["public"]["Enums"]["visao_tipo"]
         }
         Insert: {
           created_at?: string
@@ -233,6 +240,7 @@ export type Database = {
           total_entradas?: number | null
           total_saidas?: number | null
           user_id: string
+          visao?: Database["public"]["Enums"]["visao_tipo"]
         }
         Update: {
           created_at?: string
@@ -243,6 +251,7 @@ export type Database = {
           total_entradas?: number | null
           total_saidas?: number | null
           user_id?: string
+          visao?: Database["public"]["Enums"]["visao_tipo"]
         }
         Relationships: []
       }
@@ -256,6 +265,7 @@ export type Database = {
           tipo_recebimento: string | null
           user_id: string
           valor: number | null
+          visao: Database["public"]["Enums"]["visao_tipo"]
         }
         Insert: {
           created_at?: string
@@ -266,6 +276,7 @@ export type Database = {
           tipo_recebimento?: string | null
           user_id: string
           valor?: number | null
+          visao?: Database["public"]["Enums"]["visao_tipo"]
         }
         Update: {
           created_at?: string
@@ -276,6 +287,7 @@ export type Database = {
           tipo_recebimento?: string | null
           user_id?: string
           valor?: number | null
+          visao?: Database["public"]["Enums"]["visao_tipo"]
         }
         Relationships: []
       }
@@ -290,6 +302,7 @@ export type Database = {
           safra: string | null
           user_id: string
           valor_contrato: number | null
+          visao: Database["public"]["Enums"]["visao_tipo"]
         }
         Insert: {
           created_at?: string
@@ -301,6 +314,7 @@ export type Database = {
           safra?: string | null
           user_id: string
           valor_contrato?: number | null
+          visao?: Database["public"]["Enums"]["visao_tipo"]
         }
         Update: {
           created_at?: string
@@ -312,6 +326,7 @@ export type Database = {
           safra?: string | null
           user_id?: string
           valor_contrato?: number | null
+          visao?: Database["public"]["Enums"]["visao_tipo"]
         }
         Relationships: []
       }
@@ -332,6 +347,7 @@ export type Database = {
           tipo_lancamento: string | null
           user_id: string
           valor_bruto: number | null
+          visao: Database["public"]["Enums"]["visao_tipo"]
         }
         Insert: {
           ativo?: string | null
@@ -349,6 +365,7 @@ export type Database = {
           tipo_lancamento?: string | null
           user_id: string
           valor_bruto?: number | null
+          visao?: Database["public"]["Enums"]["visao_tipo"]
         }
         Update: {
           ativo?: string | null
@@ -366,6 +383,7 @@ export type Database = {
           tipo_lancamento?: string | null
           user_id?: string
           valor_bruto?: number | null
+          visao?: Database["public"]["Enums"]["visao_tipo"]
         }
         Relationships: []
       }
@@ -405,6 +423,7 @@ export type Database = {
           safra: string | null
           status: string | null
           user_id: string
+          visao: Database["public"]["Enums"]["visao_tipo"]
         }
         Insert: {
           created_at?: string
@@ -414,6 +433,7 @@ export type Database = {
           safra?: string | null
           status?: string | null
           user_id: string
+          visao?: Database["public"]["Enums"]["visao_tipo"]
         }
         Update: {
           created_at?: string
@@ -423,6 +443,7 @@ export type Database = {
           safra?: string | null
           status?: string | null
           user_id?: string
+          visao?: Database["public"]["Enums"]["visao_tipo"]
         }
         Relationships: []
       }
@@ -491,6 +512,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
+      visao_tipo: "real" | "orçado" | "forecast"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -619,6 +641,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      visao_tipo: ["real", "orçado", "forecast"],
     },
   },
 } as const
