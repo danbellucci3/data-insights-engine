@@ -50,6 +50,7 @@ export const tableSchemas: TableSchema[] = [
       { key: "passivo_circulante", label: "Passivo Circulante", type: "number" },
       { key: "passivo_nao_circulante", label: "Passivo Não Circulante", type: "number" },
       { key: "patrimonio_liquido", label: "Patrimônio Líquido", type: "number" },
+      { key: "visao", label: "Visão", type: "text" },
     ],
   },
   {
