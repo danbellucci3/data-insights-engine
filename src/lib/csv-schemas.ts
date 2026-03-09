@@ -85,6 +85,7 @@ export const tableSchemas: TableSchema[] = [
       { key: "safra", label: "Safra", type: "text" },
       { key: "nome_projeto", label: "Nome Projeto", type: "text" },
       { key: "status", label: "Status", type: "text" },
+      { key: "visao", label: "Visão", type: "text" },
     ],
   },
   {
