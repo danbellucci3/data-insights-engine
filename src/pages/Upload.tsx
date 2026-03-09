@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Upload as UploadIcon, FileSpreadsheet, Trash2, CheckCircle2 } from "lucide-react";
+import { Upload as UploadIcon, FileSpreadsheet, Trash2, CheckCircle2, Download } from "lucide-react";
 
 type ValidTableName = "investimentos" | "dre" | "balanco" | "fluxo_de_caixa" | "folha_de_pagamento" | "projetos" | "fornecedores";
 
@@ -118,6 +118,23 @@ export default function UploadPage() {
     [schema, toast]
   );
 
+  const downloadTemplate = (tableSchema: TableSchema) => {
+    const headers = tableSchema.columns.map((c) => c.label);
+    const exampleRow = tableSchema.columns.map((c) => {
+      if (c.key === "visao") return "real";
+      if (c.type === "number") return "0";
+      if (c.type === "date") return "01/01/2024";
+      return "Exemplo";
+    });
+    
+    const ws = XLSX.utils.aoa_to_sheet([headers, exampleRow]);
+    ws["!cols"] = headers.map(() => ({ wch: 18 }));
+    
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Dados");
+    XLSX.writeFile(wb, `modelo_${tableSchema.name}.xlsx`);
+  };
+
   const handleImport = async () => {
     if (!user || !schema || previewData.length === 0) return;
     setImporting(true);
@@ -147,6 +164,29 @@ export default function UploadPage() {
         <h1 className="text-2xl font-bold">Importar Dados</h1>
         <p className="text-muted-foreground">Faça upload de arquivos CSV ou Excel para alimentar suas tabelas.</p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Modelos de Planilha</CardTitle>
+          <CardDescription>Baixe um modelo em branco para cada tabela e preencha com seus dados.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {tableSchemas.map((schema) => (
+              <Button
+                key={schema.name}
+                variant="outline"
+                size="sm"
+                onClick={() => downloadTemplate(schema)}
+                className="flex flex-col items-center gap-2 h-auto py-3"
+              >
+                <Download className="h-4 w-4" />
+                <span className="text-xs text-center">{schema.label}</span>
+              </Button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
