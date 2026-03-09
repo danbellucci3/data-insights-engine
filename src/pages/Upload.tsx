@@ -123,7 +123,11 @@ export default function UploadPage() {
     setImporting(true);
 
     const tableName = schema.name as ValidTableName;
-    const rows = previewData.map((row) => ({ ...row, user_id: user.id }));
+    const rows = previewData.map((row) => ({ 
+      ...row, 
+      user_id: user.id,
+      visao: selectedVisao 
+    }));
 
     const { error } = await supabase.from(tableName).insert(rows as any);
 
