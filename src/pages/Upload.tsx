@@ -143,7 +143,6 @@ export default function UploadPage() {
     const rows = previewData.map((row) => ({ 
       ...row, 
       user_id: user.id,
-      visao: selectedVisao 
     }));
 
     const { error } = await supabase.from(tableName).insert(rows as any);
