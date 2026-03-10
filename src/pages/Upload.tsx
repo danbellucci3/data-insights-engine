@@ -74,7 +74,7 @@ export default function UploadPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [selectedTable, setSelectedTable] = useState<string>("");
-  const [selectedVisao, setSelectedVisao] = useState<"real" | "orçado" | "forecast">("real");
+  
   const [previewData, setPreviewData] = useState<Record<string, any>[]>([]);
   const [importing, setImporting] = useState(false);
   const [fileName, setFileName] = useState("");
@@ -94,7 +94,7 @@ export default function UploadPage() {
           header: true,
           skipEmptyLines: true,
           complete: (results) => {
-            setPreviewData(mapRows(results.data as Record<string, any>[], schema).slice(0, 100));
+            setPreviewData(mapRows(results.data as Record<string, any>[], schema));
           },
           error: () => toast({ title: "Erro ao ler CSV", variant: "destructive" }),
         });
@@ -105,7 +105,7 @@ export default function UploadPage() {
             const wb = XLSX.read(evt.target?.result, { type: "array" });
             const ws = wb.Sheets[wb.SheetNames[0]];
             const rawRows = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { defval: "" });
-            setPreviewData(mapRows(rawRows, schema).slice(0, 100));
+            setPreviewData(mapRows(rawRows, schema));
           } catch {
             toast({ title: "Erro ao ler planilha", variant: "destructive" });
           }
@@ -143,7 +143,6 @@ export default function UploadPage() {
     const rows = previewData.map((row) => ({ 
       ...row, 
       user_id: user.id,
-      visao: selectedVisao 
     }));
 
     const { error } = await supabase.from(tableName).insert(rows as any);
@@ -206,22 +205,12 @@ export default function UploadPage() {
               </SelectContent>
             </Select>
 
-            <Select value={selectedVisao} onValueChange={(v) => setSelectedVisao(v as "real" | "orçado" | "forecast")}>
-              <SelectTrigger className="w-full max-w-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="real">Real</SelectItem>
-                <SelectItem value="orçado">Orçado</SelectItem>
-                <SelectItem value="forecast">Forecast</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
 
           {schema && (
             <div className="space-y-3">
               <div className="text-sm text-muted-foreground">
-                <strong>Tabela:</strong> {schema.label} | <strong>Visão:</strong> {selectedVisao.charAt(0).toUpperCase() + selectedVisao.slice(1)}
+                <strong>Tabela:</strong> {schema.label}
               </div>
               <div className="text-sm text-muted-foreground">
                 <strong>Colunas esperadas:</strong>{" "}
