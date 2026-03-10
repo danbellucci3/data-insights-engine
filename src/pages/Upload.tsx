@@ -210,7 +210,7 @@ export default function UploadPage() {
           {schema && (
             <div className="space-y-3">
               <div className="text-sm text-muted-foreground">
-                <strong>Tabela:</strong> {schema.label} | <strong>Visão:</strong> {selectedVisao.charAt(0).toUpperCase() + selectedVisao.slice(1)}
+                <strong>Tabela:</strong> {schema.label}
               </div>
               <div className="text-sm text-muted-foreground">
                 <strong>Colunas esperadas:</strong>{" "}
