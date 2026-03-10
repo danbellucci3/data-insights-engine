@@ -74,7 +74,7 @@ export default function UploadPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [selectedTable, setSelectedTable] = useState<string>("");
-  const [selectedVisao, setSelectedVisao] = useState<"real" | "orçado" | "forecast">("real");
+  
   const [previewData, setPreviewData] = useState<Record<string, any>[]>([]);
   const [importing, setImporting] = useState(false);
   const [fileName, setFileName] = useState("");
