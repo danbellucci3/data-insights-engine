@@ -105,7 +105,7 @@ export default function UploadPage() {
             const wb = XLSX.read(evt.target?.result, { type: "array" });
             const ws = wb.Sheets[wb.SheetNames[0]];
             const rawRows = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { defval: "" });
-            setPreviewData(mapRows(rawRows, schema).slice(0, 100));
+            setPreviewData(mapRows(rawRows, schema));
           } catch {
             toast({ title: "Erro ao ler planilha", variant: "destructive" });
           }
