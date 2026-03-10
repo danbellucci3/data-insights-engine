@@ -94,7 +94,7 @@ export default function UploadPage() {
           header: true,
           skipEmptyLines: true,
           complete: (results) => {
-            setPreviewData(mapRows(results.data as Record<string, any>[], schema).slice(0, 100));
+            setPreviewData(mapRows(results.data as Record<string, any>[], schema));
           },
           error: () => toast({ title: "Erro ao ler CSV", variant: "destructive" }),
         });
