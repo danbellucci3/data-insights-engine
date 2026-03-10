@@ -205,16 +205,6 @@ export default function UploadPage() {
               </SelectContent>
             </Select>
 
-            <Select value={selectedVisao} onValueChange={(v) => setSelectedVisao(v as "real" | "orçado" | "forecast")}>
-              <SelectTrigger className="w-full max-w-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="real">Real</SelectItem>
-                <SelectItem value="orçado">Orçado</SelectItem>
-                <SelectItem value="forecast">Forecast</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
 
           {schema && (
