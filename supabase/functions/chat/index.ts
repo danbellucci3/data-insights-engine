@@ -69,11 +69,30 @@ serve(async (req) => {
       restrictedTables = [];
     }
 
+    // Fetch all rows using pagination (Supabase default limit is 1000)
+    async function fetchAllRows(table: string, userId: string) {
+      const allRows: any[] = [];
+      const pageSize = 1000;
+      let from = 0;
+      while (true) {
+        const { data } = await supabase
+          .from(table)
+          .select("*")
+          .eq("user_id", userId)
+          .range(from, from + pageSize - 1);
+        if (!data || data.length === 0) break;
+        allRows.push(...data);
+        if (data.length < pageSize) break;
+        from += pageSize;
+      }
+      return allRows;
+    }
+
     const dataContext: Record<string, any[]> = {};
     for (const table of allowedTables) {
-      const { data } = await supabase.from(table).select("*").eq("user_id", userId).limit(500);
-      if (data && data.length > 0) {
-        dataContext[table] = data.map(({ user_id, id, created_at, ...rest }: any) => rest);
+      const rows = await fetchAllRows(table, userId);
+      if (rows.length > 0) {
+        dataContext[table] = rows.map(({ user_id, id, created_at, ...rest }: any) => rest);
       }
     }
 
