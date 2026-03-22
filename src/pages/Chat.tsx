@@ -217,10 +217,15 @@ export default function ChatPage() {
         "border-r bg-muted/30 flex-shrink-0 flex flex-col transition-all duration-200",
         sidebarOpen ? "w-64" : "w-0 overflow-hidden"
       )}>
-        <div className="p-3 border-b">
+        <div className="p-3 border-b space-y-2">
           <Button variant="outline" size="sm" className="w-full" onClick={newConversation}>
             <Plus className="mr-2 h-4 w-4" /> Nova conversa
           </Button>
+          {conversations.length > 0 && (
+            <Button variant="ghost" size="sm" className="w-full text-destructive hover:text-destructive hover:bg-destructive/10" onClick={deleteAllConversations}>
+              <Trash2 className="mr-2 h-4 w-4" /> Apagar histórico
+            </Button>
+          )}
         </div>
         <ScrollArea className="flex-1">
           <div className="p-2 space-y-1">
