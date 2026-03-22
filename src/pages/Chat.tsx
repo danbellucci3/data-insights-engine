@@ -75,6 +75,20 @@ export default function ChatPage() {
     loadConversations();
   };
 
+  const deleteAllConversations = async () => {
+    if (!user) return;
+    const confirmed = window.confirm("Tem certeza que deseja apagar todo o histórico de conversas? Esta ação não pode ser desfeita.");
+    if (!confirmed) return;
+    for (const conv of conversations) {
+      await supabase.from("chat_messages").delete().eq("conversation_id", conv.id);
+      await supabase.from("chat_conversations").delete().eq("id", conv.id);
+    }
+    setActiveConvId(null);
+    setMessages([]);
+    setConversations([]);
+    toast({ title: "Histórico apagado", description: "Todas as conversas foram removidas." });
+  };
+
   const send = async () => {
     if (!input.trim() || isLoading || !user) return;
     const userMsg: Msg = { role: "user", content: input.trim() };
