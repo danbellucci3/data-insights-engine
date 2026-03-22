@@ -215,12 +215,17 @@ export default function ChatPage() {
       {/* Conversation sidebar */}
       <div className={cn(
         "border-r bg-muted/30 flex-shrink-0 flex flex-col transition-all duration-200",
-        sidebarOpen ? "w-64" : "w-0 overflow-hidden"
+        sidebarOpen ? "w-64 absolute md:relative z-20 h-full bg-background md:bg-muted/30" : "w-0 overflow-hidden"
       )}>
         <div className="p-3 border-b space-y-2">
-          <Button variant="outline" size="sm" className="w-full" onClick={newConversation}>
-            <Plus className="mr-2 h-4 w-4" /> Nova conversa
-          </Button>
+          <div className="flex items-center justify-between">
+            <Button variant="outline" size="sm" className="flex-1" onClick={newConversation}>
+              <Plus className="mr-2 h-4 w-4" /> Nova conversa
+            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8 md:hidden ml-1" onClick={() => setSidebarOpen(false)}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
           {conversations.length > 0 && (
             <Button variant="ghost" size="sm" className="w-full text-destructive hover:text-destructive hover:bg-destructive/10" onClick={deleteAllConversations}>
               <Trash2 className="mr-2 h-4 w-4" /> Apagar histórico
