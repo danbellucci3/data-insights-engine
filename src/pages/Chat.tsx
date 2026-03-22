@@ -75,6 +75,20 @@ export default function ChatPage() {
     loadConversations();
   };
 
+  const deleteAllConversations = async () => {
+    if (!user) return;
+    const confirmed = window.confirm("Tem certeza que deseja apagar todo o histórico de conversas? Esta ação não pode ser desfeita.");
+    if (!confirmed) return;
+    for (const conv of conversations) {
+      await supabase.from("chat_messages").delete().eq("conversation_id", conv.id);
+      await supabase.from("chat_conversations").delete().eq("id", conv.id);
+    }
+    setActiveConvId(null);
+    setMessages([]);
+    setConversations([]);
+    toast({ title: "Histórico apagado", description: "Todas as conversas foram removidas." });
+  };
+
   const send = async () => {
     if (!input.trim() || isLoading || !user) return;
     const userMsg: Msg = { role: "user", content: input.trim() };
@@ -203,10 +217,15 @@ export default function ChatPage() {
         "border-r bg-muted/30 flex-shrink-0 flex flex-col transition-all duration-200",
         sidebarOpen ? "w-64" : "w-0 overflow-hidden"
       )}>
-        <div className="p-3 border-b">
+        <div className="p-3 border-b space-y-2">
           <Button variant="outline" size="sm" className="w-full" onClick={newConversation}>
             <Plus className="mr-2 h-4 w-4" /> Nova conversa
           </Button>
+          {conversations.length > 0 && (
+            <Button variant="ghost" size="sm" className="w-full text-destructive hover:text-destructive hover:bg-destructive/10" onClick={deleteAllConversations}>
+              <Trash2 className="mr-2 h-4 w-4" /> Apagar histórico
+            </Button>
+          )}
         </div>
         <ScrollArea className="flex-1">
           <div className="p-2 space-y-1">
