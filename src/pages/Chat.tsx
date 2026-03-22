@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Send, Bot, User, Loader2, Plus, MessageSquare, Trash2 } from "lucide-react";
+import { Send, Bot, User, Loader2, Plus, MessageSquare, Trash2, X } from "lucide-react";
 import ChatChart, { parseChartBlocks } from "@/components/ChatChart";
 import { cn } from "@/lib/utils";
 
