@@ -214,8 +214,11 @@ export default function SettingsPage() {
     <div className="p-6 md:p-8 space-y-6 max-w-5xl mx-auto">
       <div>
         <h1 className="text-2xl font-bold">Configurações</h1>
-        <p className="text-muted-foreground">Gerencie perfis de acesso e permissões.</p>
+        <p className="text-muted-foreground">Gerencie perfis de acesso, permissões e compartilhamento.</p>
       </div>
+
+      {/* Data Sharing - visible to all users */}
+      <DataSharingCard />
 
       {/* Access Profiles */}
       <Card>
