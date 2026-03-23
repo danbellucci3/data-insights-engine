@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, Shield, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import DataSharingCard from "@/components/DataSharingCard";
 
 const ALL_TABLES = [
   { key: "investimentos", label: "Investimentos", description: "Dados de investimentos e aplicações" },
