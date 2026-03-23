@@ -92,13 +92,13 @@ export default function Dashboard() {
       if (selectedEmpresa !== "all") {
         statsPromises.push(
           supabase.from("fluxo_de_caixa").select("saldo_conta_corrente")
-            .eq("user_id", user!.id).eq("empresa", selectedEmpresa)
+            .eq("empresa", selectedEmpresa)
             .order("data", { ascending: false }).limit(1).then(r => r)
         );
       } else {
         statsPromises.push(
           supabase.from("fluxo_de_caixa").select("empresa, data, saldo_conta_corrente")
-            .eq("user_id", user!.id).order("data", { ascending: false }).then(r => r)
+            .order("data", { ascending: false }).then(r => r)
         );
       }
       statsKeys.push("fluxoStats");
