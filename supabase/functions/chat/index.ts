@@ -69,8 +69,22 @@ serve(async (req) => {
       restrictedTables = [];
     }
 
+    // Get list of user IDs whose data this user can access (own + shared)
+    const accessibleUserIds = [userId];
+    const { data: sharedAccess } = await supabase
+      .from("data_sharing")
+      .select("owner_id")
+      .eq("shared_with_id", userId);
+    if (sharedAccess) {
+      for (const s of sharedAccess) {
+        if (!accessibleUserIds.includes(s.owner_id)) {
+          accessibleUserIds.push(s.owner_id);
+        }
+      }
+    }
+
     // Fetch all rows using pagination (Supabase default limit is 1000)
-    async function fetchAllRows(table: string, userId: string) {
+    async function fetchAllRows(table: string, userIds: string[]) {
       const allRows: any[] = [];
       const pageSize = 1000;
       let from = 0;
@@ -78,7 +92,7 @@ serve(async (req) => {
         const { data } = await supabase
           .from(table)
           .select("*")
-          .eq("user_id", userId)
+          .in("user_id", userIds)
           .range(from, from + pageSize - 1);
         if (!data || data.length === 0) break;
         allRows.push(...data);
@@ -90,7 +104,7 @@ serve(async (req) => {
 
     const dataContext: Record<string, any[]> = {};
     for (const table of allowedTables) {
-      const rows = await fetchAllRows(table, userId);
+      const rows = await fetchAllRows(table, accessibleUserIds);
       if (rows.length > 0) {
         dataContext[table] = rows.map(({ user_id, id, created_at, ...rest }: any) => rest);
       }
