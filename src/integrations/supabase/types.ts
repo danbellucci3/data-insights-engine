@@ -553,6 +553,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_pending_data_invites: { Args: never; Returns: number }
       get_user_email: { Args: never; Returns: string }
       has_data_access: { Args: { data_owner_id: string }; Returns: boolean }
       has_role: {
