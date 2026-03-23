@@ -22,27 +22,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const acceptPendingInvites = async (u: User) => {
+  const acceptPendingInvites = async () => {
     try {
-      const email = u.email;
-      if (!email) return;
-
-      const { data: invites } = await supabase
-        .from("data_invites")
-        .select("id, owner_id, permission")
-        .eq("email", email)
-        .eq("status", "pending");
-
-      if (!invites || invites.length === 0) return;
-
-      for (const inv of invites) {
-        await supabase.from("data_sharing").upsert({
-          owner_id: inv.owner_id,
-          shared_with_id: u.id,
-          permission: inv.permission,
-        }, { onConflict: "owner_id,shared_with_id" });
-
-        await supabase.from("data_invites").update({ status: "accepted" }).eq("id", inv.id);
+      const { error } = await supabase.rpc("accept_pending_data_invites");
+      if (error) {
+        throw error;
       }
     } catch (e) {
       console.error("Error accepting invites:", e);
@@ -55,7 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       if (session?.user) {
         // Auto-accept pending invites for this user's email
-        setTimeout(() => acceptPendingInvites(session.user), 0);
+        setTimeout(() => acceptPendingInvites(), 0);
       }
     });
 
@@ -63,7 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setLoading(false);
       if (session?.user) {
-        setTimeout(() => acceptPendingInvites(session.user), 0);
+        setTimeout(() => acceptPendingInvites(), 0);
       }
     });
 
