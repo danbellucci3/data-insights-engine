@@ -174,6 +174,57 @@ export type Database = {
           },
         ]
       }
+      data_invites: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          owner_id: string
+          permission: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          owner_id: string
+          permission?: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          owner_id?: string
+          permission?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      data_sharing: {
+        Row: {
+          created_at: string
+          id: string
+          owner_id: string
+          permission: string
+          shared_with_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          owner_id: string
+          permission?: string
+          shared_with_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          owner_id?: string
+          permission?: string
+          shared_with_id?: string
+        }
+        Relationships: []
+      }
       dre: {
         Row: {
           created_at: string
@@ -502,6 +553,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      has_data_access: { Args: { data_owner_id: string }; Returns: boolean }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -509,6 +561,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_upload_access: { Args: { data_owner_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "user"

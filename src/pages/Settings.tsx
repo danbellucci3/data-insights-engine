@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, Shield, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import DataSharingCard from "@/components/DataSharingCard";
 
 const ALL_TABLES = [
   { key: "investimentos", label: "Investimentos", description: "Dados de investimentos e aplicações" },
@@ -202,10 +203,12 @@ export default function SettingsPage() {
 
   if (!isAdmin) {
     return (
-      <div className="flex min-h-[50vh] flex-col items-center justify-center text-center p-6">
-        <Shield className="mb-4 h-12 w-12 text-muted-foreground/50" />
-        <h2 className="text-lg font-semibold">Acesso restrito</h2>
-        <p className="text-muted-foreground">Apenas administradores podem acessar as configurações.</p>
+      <div className="p-6 md:p-8 space-y-6 max-w-5xl mx-auto">
+        <div>
+          <h1 className="text-2xl font-bold">Configurações</h1>
+          <p className="text-muted-foreground">Gerencie o compartilhamento dos seus dados.</p>
+        </div>
+        <DataSharingCard />
       </div>
     );
   }
@@ -214,8 +217,11 @@ export default function SettingsPage() {
     <div className="p-6 md:p-8 space-y-6 max-w-5xl mx-auto">
       <div>
         <h1 className="text-2xl font-bold">Configurações</h1>
-        <p className="text-muted-foreground">Gerencie perfis de acesso e permissões.</p>
+        <p className="text-muted-foreground">Gerencie perfis de acesso, permissões e compartilhamento.</p>
       </div>
+
+      {/* Data Sharing - visible to all users */}
+      <DataSharingCard />
 
       {/* Access Profiles */}
       <Card>
