@@ -54,7 +54,6 @@ export default function DataPage() {
       supabase
         .from(selectedTable as ValidTableName)
         .select("*", { count: "exact" })
-        .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .range(from, to),
     ]);

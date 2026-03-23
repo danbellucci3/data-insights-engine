@@ -56,7 +56,7 @@ export default function Dashboard() {
   const loadEmpresas = async () => {
     const allEmpresas = new Set<string>();
     const queries = allowedTables.map((table) =>
-      supabase.from(table as ValidTableName).select("empresa").eq("user_id", user!.id)
+      supabase.from(table as ValidTableName).select("empresa")
     );
     const results = await Promise.all(queries);
     results.forEach(({ data }) => data?.forEach((row) => allEmpresas.add(row.empresa)));
@@ -64,7 +64,7 @@ export default function Dashboard() {
   };
 
   const filter = (query: any) => {
-    let q = query.eq("user_id", user!.id);
+    let q = query;
     if (selectedEmpresa !== "all") q = q.eq("empresa", selectedEmpresa);
     return q;
   };
@@ -92,13 +92,13 @@ export default function Dashboard() {
       if (selectedEmpresa !== "all") {
         statsPromises.push(
           supabase.from("fluxo_de_caixa").select("saldo_conta_corrente")
-            .eq("user_id", user!.id).eq("empresa", selectedEmpresa)
+            .eq("empresa", selectedEmpresa)
             .order("data", { ascending: false }).limit(1).then(r => r)
         );
       } else {
         statsPromises.push(
           supabase.from("fluxo_de_caixa").select("empresa, data, saldo_conta_corrente")
-            .eq("user_id", user!.id).order("data", { ascending: false }).then(r => r)
+            .order("data", { ascending: false }).then(r => r)
         );
       }
       statsKeys.push("fluxoStats");
