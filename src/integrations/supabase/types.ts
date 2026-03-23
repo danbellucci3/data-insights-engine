@@ -553,6 +553,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      has_data_access: { Args: { data_owner_id: string }; Returns: boolean }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -560,6 +561,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_upload_access: { Args: { data_owner_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "user"
