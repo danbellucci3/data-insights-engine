@@ -56,7 +56,7 @@ export default function Dashboard() {
   const loadEmpresas = async () => {
     const allEmpresas = new Set<string>();
     const queries = allowedTables.map((table) =>
-      supabase.from(table as ValidTableName).select("empresa").eq("user_id", user!.id)
+      supabase.from(table as ValidTableName).select("empresa")
     );
     const results = await Promise.all(queries);
     results.forEach(({ data }) => data?.forEach((row) => allEmpresas.add(row.empresa)));
