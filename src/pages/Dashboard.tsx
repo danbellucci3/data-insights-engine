@@ -64,7 +64,7 @@ export default function Dashboard() {
   };
 
   const filter = (query: any) => {
-    let q = query.eq("user_id", user!.id);
+    let q = query;
     if (selectedEmpresa !== "all") q = q.eq("empresa", selectedEmpresa);
     return q;
   };
