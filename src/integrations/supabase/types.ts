@@ -174,6 +174,57 @@ export type Database = {
           },
         ]
       }
+      data_invites: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          owner_id: string
+          permission: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          owner_id: string
+          permission?: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          owner_id?: string
+          permission?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      data_sharing: {
+        Row: {
+          created_at: string
+          id: string
+          owner_id: string
+          permission: string
+          shared_with_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          owner_id: string
+          permission?: string
+          shared_with_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          owner_id?: string
+          permission?: string
+          shared_with_id?: string
+        }
+        Relationships: []
+      }
       dre: {
         Row: {
           created_at: string
