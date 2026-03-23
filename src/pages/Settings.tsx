@@ -203,10 +203,12 @@ export default function SettingsPage() {
 
   if (!isAdmin) {
     return (
-      <div className="flex min-h-[50vh] flex-col items-center justify-center text-center p-6">
-        <Shield className="mb-4 h-12 w-12 text-muted-foreground/50" />
-        <h2 className="text-lg font-semibold">Acesso restrito</h2>
-        <p className="text-muted-foreground">Apenas administradores podem acessar as configurações.</p>
+      <div className="p-6 md:p-8 space-y-6 max-w-5xl mx-auto">
+        <div>
+          <h1 className="text-2xl font-bold">Configurações</h1>
+          <p className="text-muted-foreground">Gerencie o compartilhamento dos seus dados.</p>
+        </div>
+        <DataSharingCard />
       </div>
     );
   }
