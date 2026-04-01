@@ -85,7 +85,8 @@ export default function Dashboard() {
     results.forEach(({ data }, i) => {
       data?.forEach((r: any) => {
         const v = r[safraFields[i].field];
-        if (v) safraSet.add(v);
+        const normalized = normalizeSafra(v);
+        if (normalized) safraSet.add(normalized);
       });
     });
     setAllSafras(Array.from(safraSet).sort());
