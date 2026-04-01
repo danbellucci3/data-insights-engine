@@ -6,6 +6,26 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const tableSchemas: Record<string, string[]> = {
+  investimentos: ["empresa", "visao", "data", "ativo", "banco", "carencia", "id_lancamento", "tipo_lancamento", "valor_bruto", "receita_bruta_dia", "remuneracao_dia_cdi", "imposto_renda", "aux1"],
+  dre: ["empresa", "visao", "safra", "faturamento", "custos", "despesa", "impostos", "ebitda", "lucro_liquido"],
+  balanco: ["empresa", "visao", "safra", "ativo_circulante", "ativo_nao_circulante", "passivo_circulante", "passivo_nao_circulante", "patrimonio_liquido"],
+  fluxo_de_caixa: ["empresa", "visao", "data", "total_entradas", "total_saidas", "saldo_conta_corrente"],
+  folha_de_pagamento: ["empresa", "visao", "safra", "nome_funcionario", "tipo_recebimento", "valor"],
+  projetos: ["empresa", "visao", "safra", "nome_projeto", "status"],
+  fornecedores: ["empresa", "visao", "safra", "nome_fornecedor", "data_inicio_contrato", "data_fim_contrato", "valor_contrato"],
+};
+
+const tableLabels: Record<string, string> = {
+  investimentos: "Investimentos",
+  dre: "DRE",
+  balanco: "Balanço",
+  fluxo_de_caixa: "Fluxo de Caixa",
+  folha_de_pagamento: "Folha de Pagamento",
+  projetos: "Projetos",
+  fornecedores: "Fornecedores",
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -19,15 +39,10 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const allTables = [
-      "investimentos", "dre", "balanco", "fluxo_de_caixa",
-      "folha_de_pagamento", "projetos", "fornecedores"
-    ];
-
-    // Tables restricted by default (when user has no profile assigned)
+    const allTables = Object.keys(tableSchemas);
     const defaultRestrictedTables = ["folha_de_pagamento"];
 
-    // Check user's access profile
+    // --- Determine allowed tables based on user profile/role ---
     const { data: userProfiles } = await supabase
       .from("user_access_profiles")
       .select("profile_id")
@@ -37,7 +52,6 @@ serve(async (req) => {
     let restrictedTables: string[];
 
     if (userProfiles && userProfiles.length > 0) {
-      // User has profile(s) assigned — use profile permissions
       const profileIds = userProfiles.map((p: any) => p.profile_id);
       const { data: profileTables } = await supabase
         .from("access_profile_tables")
@@ -48,17 +62,14 @@ serve(async (req) => {
         allowedTables = [...new Set(profileTables.map((t: any) => t.table_name))];
         restrictedTables = allTables.filter(t => !allowedTables.includes(t));
       } else {
-        // Profile exists but no tables assigned
         allowedTables = allTables.filter(t => !defaultRestrictedTables.includes(t));
         restrictedTables = defaultRestrictedTables;
       }
     } else {
-      // No profile assigned — apply default restrictions
       allowedTables = allTables.filter(t => !defaultRestrictedTables.includes(t));
       restrictedTables = defaultRestrictedTables;
     }
 
-    // Check if user is admin (admins get full access)
     const { data: roles } = await supabase
       .from("user_roles")
       .select("role")
@@ -69,7 +80,7 @@ serve(async (req) => {
       restrictedTables = [];
     }
 
-    // Get list of user IDs whose data this user can access (own + shared)
+    // --- Get accessible user IDs (own + shared) ---
     const accessibleUserIds = [userId];
     const { data: sharedAccess } = await supabase
       .from("data_sharing")
@@ -83,113 +94,193 @@ serve(async (req) => {
       }
     }
 
-    // Fetch rows with a hard cap to avoid exceeding token limits
-    const MAX_ROWS_PER_TABLE = 200;
-
-    async function fetchRows(table: string, userIds: string[]) {
-      const { data } = await supabase
-        .from(table)
-        .select("*")
-        .in("user_id", userIds)
-        .order("created_at", { ascending: false })
-        .limit(MAX_ROWS_PER_TABLE);
-      return data || [];
-    }
-
-    const dataContext: Record<string, { rows: any[]; totalCount: number }> = {};
-    for (const table of allowedTables) {
-      // Get total count first
-      const { count } = await supabase
-        .from(table)
-        .select("*", { count: "exact", head: true })
-        .in("user_id", accessibleUserIds);
-
-      const rows = await fetchRows(table, accessibleUserIds);
-      if (rows.length > 0) {
-        const cleaned = rows.map(({ user_id, id, created_at, ...rest }: any) => rest);
-        dataContext[table] = { rows: cleaned, totalCount: count || cleaned.length };
-      }
-    }
-
-    // Build context with compact JSON (no pretty print) to save tokens
-    const contextParts = Object.entries(dataContext).map(([table, { rows, totalCount }]) => {
-      const truncNote = totalCount > rows.length
-        ? ` (mostrando ${rows.length} de ${totalCount} registros mais recentes)`
-        : "";
-      return `\n### ${table.toUpperCase()} (${totalCount} registros${truncNote}):\n${JSON.stringify(rows)}`;
-    });
-
-    // Estimate token count (~4 chars per token) and further truncate if needed
-    let contextStr = contextParts.join("\n");
-    const estimatedTokens = contextStr.length / 4;
-    if (estimatedTokens > 800000) {
-      // Too large even after limiting rows — reduce to summary only
-      const summaryParts = Object.entries(dataContext).map(([table, { rows, totalCount }]) => {
-        const sample = rows.slice(0, 20);
-        return `\n### ${table.toUpperCase()} (${totalCount} registros, amostra de ${sample.length}):\n${JSON.stringify(sample)}`;
-      });
-      contextStr = summaryParts.join("\n");
-    }
-
-    const tableLabels: Record<string, string> = {
-      investimentos: "Investimentos",
-      dre: "DRE",
-      balanco: "Balanço",
-      fluxo_de_caixa: "Fluxo de Caixa",
-      folha_de_pagamento: "Folha de Pagamento",
-      projetos: "Projetos",
-      fornecedores: "Fornecedores",
-    };
+    // --- Build schema description for Step 1 ---
+    const schemaDescription = allowedTables.map(t => {
+      const dateField = (t === "fluxo_de_caixa" || t === "investimentos") ? "data (formato: YYYY-MM-DD)" : "safra (formato: MM/YYYY)";
+      const cols = tableSchemas[t];
+      return `- **${tableLabels[t] || t}** (tabela: \`${t}\`): colunas: ${cols.join(", ")}. Campo de período: ${dateField}`;
+    }).join("\n");
 
     const restrictedInfo = restrictedTables.length > 0
-      ? `\n\nTABELAS RESTRITAS (o usuário NÃO tem acesso):
-${restrictedTables.map(t => `- ${tableLabels[t] || t}`).join("\n")}
+      ? `\n\nTabelas RESTRITAS (sem acesso): ${restrictedTables.map(t => tableLabels[t] || t).join(", ")}`
+      : "";
 
-IMPORTANTE: Se o usuário perguntar sobre dados dessas tabelas restritas, informe educadamente que ele não tem permissão para acessar esses dados conforme seu perfil de acesso. Não invente dados dessas tabelas.`
+    // --- Step 1: Ask AI what data it needs ---
+    const planningPrompt = `Você é um assistente que analisa perguntas financeiras. Dado a pergunta do usuário e o esquema das tabelas disponíveis, responda APENAS com um JSON indicando quais dados você precisa para responder.
+
+TABELAS DISPONÍVEIS:
+${schemaDescription}
+${restrictedInfo}
+
+Responda SOMENTE com JSON válido no formato:
+{
+  "needs_data": true,
+  "tables": [
+    {
+      "table": "nome_da_tabela",
+      "columns": ["col1", "col2"],
+      "filters": {
+        "safra_gte": "01/2024",
+        "safra_lte": "12/2024",
+        "data_gte": "2024-01-01",
+        "data_lte": "2024-12-31",
+        "empresa": "opcional"
+      }
+    }
+  ]
+}
+
+Se a pergunta não requer dados das tabelas (ex: saudação, pergunta genérica), retorne:
+{"needs_data": false, "tables": []}
+
+REGRAS:
+- Use APENAS tabelas e colunas que existem no esquema acima
+- Sempre inclua "empresa" e "visao" nas colunas solicitadas
+- Para tabelas com "safra", use safra_gte/safra_lte no formato MM/YYYY
+- Para tabelas com "data", use data_gte/data_lte no formato YYYY-MM-DD
+- Se não há filtro de período específico, omita os campos de filtro de período
+- Solicite apenas as colunas necessárias para responder a pergunta
+- NÃO inclua texto fora do JSON`;
+
+    const userQuestion = messages[messages.length - 1]?.content || "";
+    const conversationContext = messages.slice(-6).map((m: any) => ({ role: m.role, content: m.content }));
+
+    const planResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${GEMINI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gemini-2.5-flash",
+        messages: [
+          { role: "system", content: planningPrompt },
+          ...conversationContext,
+        ],
+        temperature: 0,
+      }),
+    });
+
+    if (!planResponse.ok) {
+      const t = await planResponse.text();
+      console.error("Planning step error:", planResponse.status, t);
+      if (planResponse.status === 429) {
+        return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({ error: "AI gateway error" }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const planJson = await planResponse.json();
+    const planText = planJson.choices?.[0]?.message?.content || "";
+    
+    // Parse the JSON from the planning response
+    let plan: { needs_data: boolean; tables: any[] };
+    try {
+      const jsonMatch = planText.match(/\{[\s\S]*\}/);
+      plan = jsonMatch ? JSON.parse(jsonMatch[0]) : { needs_data: false, tables: [] };
+    } catch {
+      console.error("Failed to parse plan:", planText);
+      plan = { needs_data: false, tables: [] };
+    }
+
+    // --- Step 2: Fetch only the requested data ---
+    let contextStr = "";
+
+    if (plan.needs_data && plan.tables && plan.tables.length > 0) {
+      const dataParts: string[] = [];
+
+      for (const tableReq of plan.tables) {
+        const tableName = tableReq.table;
+        if (!allowedTables.includes(tableName)) continue;
+
+        // Validate columns against schema
+        const validCols = tableSchemas[tableName] || [];
+        const requestedCols = (tableReq.columns || validCols)
+          .filter((c: string) => validCols.includes(c));
+        
+        // Always include empresa and visao
+        const selectCols = [...new Set(["empresa", "visao", ...requestedCols])];
+
+        let query = supabase
+          .from(tableName)
+          .select(selectCols.join(","))
+          .in("user_id", accessibleUserIds);
+
+        const filters = tableReq.filters || {};
+        const dateField = (tableName === "fluxo_de_caixa" || tableName === "investimentos") ? "data" : "safra";
+
+        if (dateField === "data") {
+          if (filters.data_gte) query = query.gte("data", filters.data_gte);
+          if (filters.data_lte) query = query.lte("data", filters.data_lte);
+        } else {
+          if (filters.safra_gte) query = query.gte("safra", filters.safra_gte);
+          if (filters.safra_lte) query = query.lte("safra", filters.safra_lte);
+        }
+
+        if (filters.empresa) query = query.eq("empresa", filters.empresa);
+
+        // Order by date/safra field
+        query = query.order(dateField, { ascending: true });
+
+        const { data: rows, error } = await query;
+        if (error) {
+          console.error(`Error fetching ${tableName}:`, error);
+          continue;
+        }
+
+        if (rows && rows.length > 0) {
+          dataParts.push(`### ${tableLabels[tableName] || tableName} (${rows.length} registros):\n${JSON.stringify(rows)}`);
+        } else {
+          dataParts.push(`### ${tableLabels[tableName] || tableName}: Nenhum registro encontrado com os filtros aplicados.`);
+        }
+      }
+
+      contextStr = dataParts.join("\n\n");
+    }
+
+    // --- Step 3: Final response with streaming ---
+    const restrictedFinalInfo = restrictedTables.length > 0
+      ? `\n\nTABELAS RESTRITAS (o usuário NÃO tem acesso):\n${restrictedTables.map(t => `- ${tableLabels[t] || t}`).join("\n")}\nSe o usuário perguntar sobre dados dessas tabelas, informe que ele não tem permissão.`
       : "";
 
     const systemPrompt = `Você é um assistente financeiro inteligente. Analise os dados do usuário e responda perguntas de forma clara e precisa em português brasileiro.
 
-DADOS DO USUÁRIO:
-${contextStr}
-${restrictedInfo}
+${contextStr ? `DADOS DO USUÁRIO:\n${contextStr}` : "Nenhum dado disponível nas tabelas para esta consulta."}
+${restrictedFinalInfo}
 
 ANÁLISE DE VISÕES (REAL vs ORÇADO vs FORECAST):
-Quando houver dados com diferentes visões (real, orçado, forecast) na mesma tabela:
-- SEMPRE compare os valores entre as visões automaticamente
+Quando houver dados com diferentes visões (real, orçado, forecast):
+- Compare os valores entre as visões
 - Calcule desvios percentuais: (Real - Orçado) / Orçado * 100
-- Identifique tendências e variações significativas
-- Destaque os maiores desvios (positivos e negativos)
-- Use gráficos comparativos quando apropriado
+- Destaque os maiores desvios
 
 INSTRUÇÕES:
 - Responda sempre em português brasileiro
-- Use formatação markdown para organizar a resposta
-- Formate valores monetários no padrão brasileiro (R$ X.XXX,XX)
+- Use formatação markdown
+- Formate valores monetários: R$ X.XXX,XX
 - Se os dados não contiverem informação suficiente, informe isso
-- Faça cálculos quando necessário (somas, médias, comparações, desvios)
+- Faça cálculos quando necessário
 - Seja conciso mas completo
-- Quando houver dados tabulares, SEMPRE use tabelas markdown (com | e ---) para exibir os dados de forma organizada. Exemplo:
-| Coluna A | Coluna B |
-|---|---|
-| Valor 1 | Valor 2 |
+- Use tabelas markdown para dados tabulares
 
 GRÁFICOS:
-Quando o usuário pedir um gráfico, visualização ou comparação visual, inclua um bloco de código especial com a linguagem "chart" contendo JSON válido. Formato:
+Quando o usuário pedir gráfico ou comparação visual, inclua:
 \`\`\`chart
 {
   "type": "bar" ou "line",
-  "title": "Título do gráfico",
-  "xKey": "nome_da_chave_do_eixo_x",
-  "series": [{"key": "chave_valor", "label": "Rótulo exibido"}],
-  "data": [{"chave_x": "valor", "chave_valor": 123}, ...]
+  "title": "Título",
+  "xKey": "chave_eixo_x",
+  "series": [{"key": "chave_valor", "label": "Rótulo"}],
+  "data": [{"chave_x": "valor", "chave_valor": 123}]
 }
 \`\`\`
 - Use "bar" para comparações e "line" para evolução temporal
-- Os valores em "data" devem ser numéricos (sem formatação)
-- Sempre agregue/calcule os dados antes de montar o gráfico
-- Você pode incluir texto explicativo antes e/ou depois do bloco chart
-- Para comparar visões, crie gráficos com múltiplas séries (Real, Orçado, Forecast)`;
+- Valores numéricos sem formatação
+- Para comparar visões, use múltiplas séries`;
 
     const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
       method: "POST",
@@ -210,21 +301,13 @@ Quando o usuário pedir um gráfico, visualização ou comparação visual, incl
     if (!response.ok) {
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Payment required" }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       const t = await response.text();
       console.error("AI gateway error:", response.status, t);
       return new Response(JSON.stringify({ error: "AI gateway error" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -234,8 +317,7 @@ Quando o usuário pedir um gráfico, visualização ou comparação visual, incl
   } catch (e) {
     console.error("chat error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
