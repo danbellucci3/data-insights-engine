@@ -68,9 +68,42 @@ export default function Dashboard() {
     setEmpresas(Array.from(allEmpresas).sort());
   };
 
-  const filter = (query: any) => {
+  const loadAllSafras = async () => {
+    const safraSet = new Set<string>();
+    const safraFields: { table: ValidTableName; field: string }[] = [
+      { table: "dre", field: "safra" },
+      { table: "balanco", field: "safra" },
+      { table: "folha_de_pagamento", field: "safra" },
+      { table: "projetos", field: "safra" },
+      { table: "fornecedores", field: "safra" },
+      { table: "investimentos", field: "data" },
+      { table: "fluxo_de_caixa", field: "data" },
+    ].filter(t => has(t.table));
+    const results = await Promise.all(
+      safraFields.map(t => supabase.from(t.table).select(t.field))
+    );
+    results.forEach(({ data }, i) => {
+      data?.forEach((r: any) => {
+        const v = r[safraFields[i].field];
+        if (v) safraSet.add(v);
+      });
+    });
+    setAllSafras(Array.from(safraSet).sort());
+  };
+
+  const getSafraField = (table: string) => {
+    if (table === "fluxo_de_caixa" || table === "investimentos") return "data";
+    return "safra";
+  };
+
+  const filter = (query: any, table?: string) => {
     let q = query;
     if (selectedEmpresa !== "all") q = q.eq("empresa", selectedEmpresa);
+    if (table && (safraInicio !== "all" || safraFim !== "all")) {
+      const field = getSafraField(table);
+      if (safraInicio !== "all") q = q.gte(field, safraInicio);
+      if (safraFim !== "all") q = q.lte(field, safraFim);
+    }
     return q;
   };
 
