@@ -10,8 +10,9 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell, Legend,
 } from "recharts";
-import { DollarSign, TrendingUp, Building2, Users } from "lucide-react";
+import { DollarSign, TrendingUp, Building2, Users, Calendar } from "lucide-react";
 import DashboardExport from "@/components/DashboardExport";
+import { Badge } from "@/components/ui/badge";
 
 const COLORS = [
   "hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))",
@@ -40,7 +41,7 @@ export default function Dashboard() {
   const [folhaData, setFolhaData] = useState<any[]>([]);
   const [projetosData, setProjetosData] = useState<any[]>([]);
   const [fornecedoresData, setFornecedoresData] = useState<any[]>([]);
-
+  const [safraRanges, setSafraRanges] = useState<Record<string, { min: string; max: string; count: number }>>({});
   const has = (t: string) => allowedTables.includes(t);
 
   useEffect(() => {
@@ -232,6 +233,33 @@ export default function Dashboard() {
     if (!has("projetos")) setProjetosData([]);
     if (!has("fornecedores")) setFornecedoresData([]);
 
+    // Load safra ranges for each table
+    const safraTablesConfig = [
+      { key: "dre", table: "dre" as ValidTableName, label: "DRE", safraField: "safra" },
+      { key: "balanco", table: "balanco" as ValidTableName, label: "Balanço", safraField: "safra" },
+      { key: "investimentos", table: "investimentos" as ValidTableName, label: "Investimentos", safraField: "data" },
+      { key: "fluxo_de_caixa", table: "fluxo_de_caixa" as ValidTableName, label: "Fluxo de Caixa", safraField: "data" },
+      { key: "folha_de_pagamento", table: "folha_de_pagamento" as ValidTableName, label: "Folha de Pagamento", safraField: "safra" },
+      { key: "projetos", table: "projetos" as ValidTableName, label: "Projetos", safraField: "safra" },
+      { key: "fornecedores", table: "fornecedores" as ValidTableName, label: "Fornecedores", safraField: "safra" },
+    ].filter(t => has(t.key));
+
+    const safraPromises = safraTablesConfig.map(t =>
+      filter(supabase.from(t.table).select(t.safraField)).then(res => ({
+        key: t.key,
+        label: t.label,
+        values: (res.data || []).map((r: any) => r[t.safraField]).filter(Boolean) as string[],
+      }))
+    );
+    const safraResults = await Promise.all(safraPromises);
+    const ranges: Record<string, { min: string; max: string; count: number }> = {};
+    safraResults.forEach(({ label, values }) => {
+      if (values.length === 0) return;
+      const unique = [...new Set(values)].sort() as string[];
+      ranges[label] = { min: unique[0] as string, max: unique[unique.length - 1] as string, count: unique.length };
+    });
+    setSafraRanges(ranges);
+
     setDataLoading(false);
   };
 
@@ -301,7 +329,33 @@ export default function Dashboard() {
             ))}
       </div>
 
-      {/* Loading skeleton for charts */}
+      {/* Safra coverage per table */}
+      {!isLoading && Object.keys(safraRanges).length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              Cobertura de Safras por Tabela
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {Object.entries(safraRanges).map(([table, range]) => (
+                <div key={table} className="flex flex-col gap-1.5 rounded-lg border bg-muted/30 p-3">
+                  <span className="text-sm font-medium">{table}</span>
+                  <div className="flex items-center gap-1.5">
+                    <Badge variant="outline" className="text-xs">{range.min}</Badge>
+                    <span className="text-xs text-muted-foreground">→</span>
+                    <Badge variant="outline" className="text-xs">{range.max}</Badge>
+                  </div>
+                  <span className="text-xs text-muted-foreground">{range.count} safra{range.count !== 1 ? "s" : ""}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {isLoading && (
         <div className="grid gap-6 lg:grid-cols-2">
           {Array.from({ length: 4 }).map((_, i) => (
