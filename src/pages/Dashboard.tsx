@@ -70,14 +70,14 @@ export default function Dashboard() {
 
   const loadAllSafras = async () => {
     const safraSet = new Set<string>();
-    const safraFields: { table: ValidTableName; field: string }[] = [
-      { table: "dre", field: "safra" },
-      { table: "balanco", field: "safra" },
-      { table: "folha_de_pagamento", field: "safra" },
-      { table: "projetos", field: "safra" },
-      { table: "fornecedores", field: "safra" },
-      { table: "investimentos", field: "data" },
-      { table: "fluxo_de_caixa", field: "data" },
+    const safraFields = [
+      { table: "dre" as ValidTableName, field: "safra" },
+      { table: "balanco" as ValidTableName, field: "safra" },
+      { table: "folha_de_pagamento" as ValidTableName, field: "safra" },
+      { table: "projetos" as ValidTableName, field: "safra" },
+      { table: "fornecedores" as ValidTableName, field: "safra" },
+      { table: "investimentos" as ValidTableName, field: "data" },
+      { table: "fluxo_de_caixa" as ValidTableName, field: "data" },
     ].filter(t => has(t.table));
     const results = await Promise.all(
       safraFields.map(t => supabase.from(t.table).select(t.field))
