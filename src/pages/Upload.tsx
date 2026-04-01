@@ -46,15 +46,7 @@ function mapRows(rawRows: Record<string, any>[], schema: TableSchema): Record<st
       let value: any = csvKey ? row[csvKey]?.toString().trim() : "";
 
       if (SAFRA_KEYS.has(col.key) && value) {
-        // Safra: convert to mm/yyyy for display, store as mm/yyyy
-        const d = parseExcelDate(value);
-        if (d) {
-          value = `${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
-        } else if (/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
-          // Already dd/mm/yyyy, convert to mm/yyyy
-          const parts = value.split("/");
-          value = `${parts[1]}/${parts[2]}`;
-        }
+        value = normalizeSafra(value) ?? value;
       } else if (col.type === "number" && value) {
         value = parseFloat(value.replace(/[^\d.,-]/g, "").replace(",", "."));
         if (isNaN(value)) value = null;
