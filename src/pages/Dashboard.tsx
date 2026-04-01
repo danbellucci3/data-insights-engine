@@ -115,29 +115,29 @@ export default function Dashboard() {
     const statsKeys: string[] = [];
 
     if (has("investimentos")) {
-      statsPromises.push(filter(supabase.from("investimentos").select("valor_bruto")));
+      statsPromises.push(filter(supabase.from("investimentos").select("valor_bruto"), "investimentos"));
       statsKeys.push("inv");
     }
     if (has("dre")) {
-      statsPromises.push(filter(supabase.from("dre").select("faturamento")));
+      statsPromises.push(filter(supabase.from("dre").select("faturamento"), "dre"));
       statsKeys.push("dre");
     }
     if (has("folha_de_pagamento")) {
-      statsPromises.push(filter(supabase.from("folha_de_pagamento").select("nome_funcionario")));
+      statsPromises.push(filter(supabase.from("folha_de_pagamento").select("nome_funcionario"), "folha_de_pagamento"));
       statsKeys.push("folha");
     }
     if (has("fluxo_de_caixa")) {
       if (selectedEmpresa !== "all") {
-        statsPromises.push(
-          supabase.from("fluxo_de_caixa").select("saldo_conta_corrente")
-            .eq("empresa", selectedEmpresa)
-            .order("data", { ascending: false }).limit(1).then(r => r)
-        );
+        let q = supabase.from("fluxo_de_caixa").select("saldo_conta_corrente")
+          .eq("empresa", selectedEmpresa);
+        if (safraInicio !== "all") q = q.gte("data", safraInicio);
+        if (safraFim !== "all") q = q.lte("data", safraFim);
+        statsPromises.push(q.order("data", { ascending: false }).limit(1).then(r => r));
       } else {
-        statsPromises.push(
-          supabase.from("fluxo_de_caixa").select("empresa, data, saldo_conta_corrente")
-            .order("data", { ascending: false }).then(r => r)
-        );
+        let q = supabase.from("fluxo_de_caixa").select("empresa, data, saldo_conta_corrente");
+        if (safraInicio !== "all") q = q.gte("data", safraInicio);
+        if (safraFim !== "all") q = q.lte("data", safraFim);
+        statsPromises.push(q.order("data", { ascending: false }).then(r => r));
       }
       statsKeys.push("fluxoStats");
     }
@@ -147,31 +147,31 @@ export default function Dashboard() {
     const chartKeys: string[] = [];
 
     if (has("dre")) {
-      chartPromises.push(filter(supabase.from("dre").select("safra, faturamento, custos, ebitda, lucro_liquido").order("safra")));
+      chartPromises.push(filter(supabase.from("dre").select("safra, faturamento, custos, ebitda, lucro_liquido").order("safra"), "dre"));
       chartKeys.push("dre");
     }
     if (has("fluxo_de_caixa")) {
-      chartPromises.push(filter(supabase.from("fluxo_de_caixa").select("data, total_entradas, total_saidas, saldo_conta_corrente").order("data")));
+      chartPromises.push(filter(supabase.from("fluxo_de_caixa").select("data, total_entradas, total_saidas, saldo_conta_corrente").order("data"), "fluxo_de_caixa"));
       chartKeys.push("fluxo");
     }
     if (has("investimentos")) {
-      chartPromises.push(filter(supabase.from("investimentos").select("banco, valor_bruto, ativo")));
+      chartPromises.push(filter(supabase.from("investimentos").select("banco, valor_bruto, ativo"), "investimentos"));
       chartKeys.push("invest");
     }
     if (has("balanco")) {
-      chartPromises.push(filter(supabase.from("balanco").select("safra, ativo_circulante, ativo_nao_circulante, passivo_circulante, passivo_nao_circulante, patrimonio_liquido").order("safra")));
+      chartPromises.push(filter(supabase.from("balanco").select("safra, ativo_circulante, ativo_nao_circulante, passivo_circulante, passivo_nao_circulante, patrimonio_liquido").order("safra"), "balanco"));
       chartKeys.push("balanco");
     }
     if (has("folha_de_pagamento")) {
-      chartPromises.push(filter(supabase.from("folha_de_pagamento").select("nome_funcionario, valor, safra")));
+      chartPromises.push(filter(supabase.from("folha_de_pagamento").select("nome_funcionario, valor, safra"), "folha_de_pagamento"));
       chartKeys.push("folha");
     }
     if (has("projetos")) {
-      chartPromises.push(filter(supabase.from("projetos").select("status")));
+      chartPromises.push(filter(supabase.from("projetos").select("status"), "projetos"));
       chartKeys.push("projetos");
     }
     if (has("fornecedores")) {
-      chartPromises.push(filter(supabase.from("fornecedores").select("nome_fornecedor, valor_contrato")));
+      chartPromises.push(filter(supabase.from("fornecedores").select("nome_fornecedor, valor_contrato"), "fornecedores"));
       chartKeys.push("fornecedores");
     }
 
