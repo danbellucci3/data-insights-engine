@@ -50,6 +50,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (!user || tablesLoading) return;
     loadEmpresas();
+    loadAllSafras();
   }, [user, tablesLoading, allowedTables]);
 
   useEffect(() => {
