@@ -26,7 +26,10 @@ export default function Dashboard() {
   const { allowedTables, loading: tablesLoading } = useAllowedTables();
   const dashboardRef = useRef<HTMLDivElement>(null);
   const [empresas, setEmpresas] = useState<string[]>([]);
+  const [allSafras, setAllSafras] = useState<string[]>([]);
   const [selectedEmpresa, setSelectedEmpresa] = useState<string>("all");
+  const [safraInicio, setSafraInicio] = useState<string>("all");
+  const [safraFim, setSafraFim] = useState<string>("all");
   const [dataLoading, setDataLoading] = useState(true);
   const [stats, setStats] = useState({
     totalInvestimentos: 0,
@@ -47,12 +50,13 @@ export default function Dashboard() {
   useEffect(() => {
     if (!user || tablesLoading) return;
     loadEmpresas();
+    loadAllSafras();
   }, [user, tablesLoading, allowedTables]);
 
   useEffect(() => {
     if (!user || tablesLoading) return;
     loadAll();
-  }, [user, selectedEmpresa, tablesLoading, allowedTables]);
+  }, [user, selectedEmpresa, safraInicio, safraFim, tablesLoading, allowedTables]);
 
   const loadEmpresas = async () => {
     const allEmpresas = new Set<string>();
@@ -64,9 +68,42 @@ export default function Dashboard() {
     setEmpresas(Array.from(allEmpresas).sort());
   };
 
-  const filter = (query: any) => {
+  const loadAllSafras = async () => {
+    const safraSet = new Set<string>();
+    const safraFields = [
+      { table: "dre" as ValidTableName, field: "safra" },
+      { table: "balanco" as ValidTableName, field: "safra" },
+      { table: "folha_de_pagamento" as ValidTableName, field: "safra" },
+      { table: "projetos" as ValidTableName, field: "safra" },
+      { table: "fornecedores" as ValidTableName, field: "safra" },
+      { table: "investimentos" as ValidTableName, field: "data" },
+      { table: "fluxo_de_caixa" as ValidTableName, field: "data" },
+    ].filter(t => has(t.table));
+    const results = await Promise.all(
+      safraFields.map(t => supabase.from(t.table).select(t.field))
+    );
+    results.forEach(({ data }, i) => {
+      data?.forEach((r: any) => {
+        const v = r[safraFields[i].field];
+        if (v) safraSet.add(v);
+      });
+    });
+    setAllSafras(Array.from(safraSet).sort());
+  };
+
+  const getSafraField = (table: string) => {
+    if (table === "fluxo_de_caixa" || table === "investimentos") return "data";
+    return "safra";
+  };
+
+  const filter = (query: any, table?: string) => {
     let q = query;
     if (selectedEmpresa !== "all") q = q.eq("empresa", selectedEmpresa);
+    if (table && (safraInicio !== "all" || safraFim !== "all")) {
+      const field = getSafraField(table);
+      if (safraInicio !== "all") q = q.gte(field, safraInicio);
+      if (safraFim !== "all") q = q.lte(field, safraFim);
+    }
     return q;
   };
 
@@ -78,29 +115,29 @@ export default function Dashboard() {
     const statsKeys: string[] = [];
 
     if (has("investimentos")) {
-      statsPromises.push(filter(supabase.from("investimentos").select("valor_bruto")));
+      statsPromises.push(filter(supabase.from("investimentos").select("valor_bruto"), "investimentos"));
       statsKeys.push("inv");
     }
     if (has("dre")) {
-      statsPromises.push(filter(supabase.from("dre").select("faturamento")));
+      statsPromises.push(filter(supabase.from("dre").select("faturamento"), "dre"));
       statsKeys.push("dre");
     }
     if (has("folha_de_pagamento")) {
-      statsPromises.push(filter(supabase.from("folha_de_pagamento").select("nome_funcionario")));
+      statsPromises.push(filter(supabase.from("folha_de_pagamento").select("nome_funcionario"), "folha_de_pagamento"));
       statsKeys.push("folha");
     }
     if (has("fluxo_de_caixa")) {
       if (selectedEmpresa !== "all") {
-        statsPromises.push(
-          supabase.from("fluxo_de_caixa").select("saldo_conta_corrente")
-            .eq("empresa", selectedEmpresa)
-            .order("data", { ascending: false }).limit(1).then(r => r)
-        );
+        let q = supabase.from("fluxo_de_caixa").select("saldo_conta_corrente")
+          .eq("empresa", selectedEmpresa);
+        if (safraInicio !== "all") q = q.gte("data", safraInicio);
+        if (safraFim !== "all") q = q.lte("data", safraFim);
+        statsPromises.push(q.order("data", { ascending: false }).limit(1).then(r => r));
       } else {
-        statsPromises.push(
-          supabase.from("fluxo_de_caixa").select("empresa, data, saldo_conta_corrente")
-            .order("data", { ascending: false }).then(r => r)
-        );
+        let q = supabase.from("fluxo_de_caixa").select("empresa, data, saldo_conta_corrente");
+        if (safraInicio !== "all") q = q.gte("data", safraInicio);
+        if (safraFim !== "all") q = q.lte("data", safraFim);
+        statsPromises.push(q.order("data", { ascending: false }).then(r => r));
       }
       statsKeys.push("fluxoStats");
     }
@@ -110,31 +147,31 @@ export default function Dashboard() {
     const chartKeys: string[] = [];
 
     if (has("dre")) {
-      chartPromises.push(filter(supabase.from("dre").select("safra, faturamento, custos, ebitda, lucro_liquido").order("safra")));
+      chartPromises.push(filter(supabase.from("dre").select("safra, faturamento, custos, ebitda, lucro_liquido").order("safra"), "dre"));
       chartKeys.push("dre");
     }
     if (has("fluxo_de_caixa")) {
-      chartPromises.push(filter(supabase.from("fluxo_de_caixa").select("data, total_entradas, total_saidas, saldo_conta_corrente").order("data")));
+      chartPromises.push(filter(supabase.from("fluxo_de_caixa").select("data, total_entradas, total_saidas, saldo_conta_corrente").order("data"), "fluxo_de_caixa"));
       chartKeys.push("fluxo");
     }
     if (has("investimentos")) {
-      chartPromises.push(filter(supabase.from("investimentos").select("banco, valor_bruto, ativo")));
+      chartPromises.push(filter(supabase.from("investimentos").select("banco, valor_bruto, ativo"), "investimentos"));
       chartKeys.push("invest");
     }
     if (has("balanco")) {
-      chartPromises.push(filter(supabase.from("balanco").select("safra, ativo_circulante, ativo_nao_circulante, passivo_circulante, passivo_nao_circulante, patrimonio_liquido").order("safra")));
+      chartPromises.push(filter(supabase.from("balanco").select("safra, ativo_circulante, ativo_nao_circulante, passivo_circulante, passivo_nao_circulante, patrimonio_liquido").order("safra"), "balanco"));
       chartKeys.push("balanco");
     }
     if (has("folha_de_pagamento")) {
-      chartPromises.push(filter(supabase.from("folha_de_pagamento").select("nome_funcionario, valor, safra")));
+      chartPromises.push(filter(supabase.from("folha_de_pagamento").select("nome_funcionario, valor, safra"), "folha_de_pagamento"));
       chartKeys.push("folha");
     }
     if (has("projetos")) {
-      chartPromises.push(filter(supabase.from("projetos").select("status")));
+      chartPromises.push(filter(supabase.from("projetos").select("status"), "projetos"));
       chartKeys.push("projetos");
     }
     if (has("fornecedores")) {
-      chartPromises.push(filter(supabase.from("fornecedores").select("nome_fornecedor, valor_contrato")));
+      chartPromises.push(filter(supabase.from("fornecedores").select("nome_fornecedor, valor_contrato"), "fornecedores"));
       chartKeys.push("fornecedores");
     }
 
@@ -245,7 +282,7 @@ export default function Dashboard() {
     ].filter(t => has(t.key));
 
     const safraPromises = safraTablesConfig.map(t =>
-      filter(supabase.from(t.table).select(t.safraField)).then(res => ({
+      filter(supabase.from(t.table).select(t.safraField), t.key).then(res => ({
         key: t.key,
         label: t.label,
         values: (res.data || []).map((r: any) => r[t.safraField]).filter(Boolean) as string[],
@@ -284,7 +321,7 @@ export default function Dashboard() {
           <h1 className="text-2xl font-bold">Dashboard</h1>
           <p className="text-muted-foreground">Visão geral dos seus dados financeiros.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <DashboardExport targetRef={dashboardRef} />
           <Select value={selectedEmpresa} onValueChange={setSelectedEmpresa}>
             <SelectTrigger className="w-48">
@@ -294,6 +331,29 @@ export default function Dashboard() {
               <SelectItem value="all">Todas as empresas</SelectItem>
               {empresas.map((e) => (
                 <SelectItem key={e} value={e}>{e}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={safraInicio} onValueChange={setSafraInicio}>
+            <SelectTrigger className="w-36">
+              <SelectValue placeholder="Início" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Início</SelectItem>
+              {allSafras.map((s) => (
+                <SelectItem key={s} value={s}>{s}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <span className="text-sm text-muted-foreground">até</span>
+          <Select value={safraFim} onValueChange={setSafraFim}>
+            <SelectTrigger className="w-36">
+              <SelectValue placeholder="Fim" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Fim</SelectItem>
+              {allSafras.map((s) => (
+                <SelectItem key={s} value={s}>{s}</SelectItem>
               ))}
             </SelectContent>
           </Select>
