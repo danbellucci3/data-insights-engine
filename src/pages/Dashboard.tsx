@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAllowedTables } from "@/hooks/useAllowedTables";
-import { fmtCurrency } from "@/lib/format";
+import { fmtCurrency, normalizeSafra } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -85,7 +85,8 @@ export default function Dashboard() {
     results.forEach(({ data }, i) => {
       data?.forEach((r: any) => {
         const v = r[safraFields[i].field];
-        if (v) safraSet.add(v);
+        const normalized = normalizeSafra(v);
+        if (normalized) safraSet.add(normalized);
       });
     });
     setAllSafras(Array.from(safraSet).sort());
@@ -206,7 +207,14 @@ export default function Dashboard() {
 
     // Process chart data
     chartKeys.forEach((key, i) => {
-      const data = chartResults[i].data || [];
+      const rawData = chartResults[i].data || [];
+      // Normalize safra fields in chart data
+      const data = rawData.map((row: any) => {
+        const r = { ...row };
+        if (r.safra) r.safra = normalizeSafra(r.safra) ?? r.safra;
+        if (r.data) r.data = normalizeSafra(r.data) ?? r.data;
+        return r;
+      });
       switch (key) {
         case "dre": setDreData(data); break;
         case "fluxo": setFluxoData(data); break;
@@ -292,7 +300,8 @@ export default function Dashboard() {
     const ranges: Record<string, { min: string; max: string; count: number }> = {};
     safraResults.forEach(({ label, values }) => {
       if (values.length === 0) return;
-      const unique = [...new Set(values)].sort() as string[];
+      const normalized = values.map(v => normalizeSafra(v) ?? v);
+      const unique = [...new Set(normalized)].sort() as string[];
       ranges[label] = { min: unique[0] as string, max: unique[unique.length - 1] as string, count: unique.length };
     });
     setSafraRanges(ranges);
