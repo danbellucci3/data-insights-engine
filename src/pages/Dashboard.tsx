@@ -329,7 +329,33 @@ export default function Dashboard() {
             ))}
       </div>
 
-      {/* Loading skeleton for charts */}
+      {/* Safra coverage per table */}
+      {!isLoading && Object.keys(safraRanges).length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              Cobertura de Safras por Tabela
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {Object.entries(safraRanges).map(([table, range]) => (
+                <div key={table} className="flex flex-col gap-1.5 rounded-lg border bg-muted/30 p-3">
+                  <span className="text-sm font-medium">{table}</span>
+                  <div className="flex items-center gap-1.5">
+                    <Badge variant="outline" className="text-xs">{range.min}</Badge>
+                    <span className="text-xs text-muted-foreground">→</span>
+                    <Badge variant="outline" className="text-xs">{range.max}</Badge>
+                  </div>
+                  <span className="text-xs text-muted-foreground">{range.count} safra{range.count !== 1 ? "s" : ""}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {isLoading && (
         <div className="grid gap-6 lg:grid-cols-2">
           {Array.from({ length: 4 }).map((_, i) => (
