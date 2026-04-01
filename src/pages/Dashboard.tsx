@@ -10,8 +10,9 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell, Legend,
 } from "recharts";
-import { DollarSign, TrendingUp, Building2, Users } from "lucide-react";
+import { DollarSign, TrendingUp, Building2, Users, Calendar } from "lucide-react";
 import DashboardExport from "@/components/DashboardExport";
+import { Badge } from "@/components/ui/badge";
 
 const COLORS = [
   "hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))",
