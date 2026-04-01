@@ -321,7 +321,7 @@ export default function Dashboard() {
           <h1 className="text-2xl font-bold">Dashboard</h1>
           <p className="text-muted-foreground">Visão geral dos seus dados financeiros.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <DashboardExport targetRef={dashboardRef} />
           <Select value={selectedEmpresa} onValueChange={setSelectedEmpresa}>
             <SelectTrigger className="w-48">
@@ -331,6 +331,29 @@ export default function Dashboard() {
               <SelectItem value="all">Todas as empresas</SelectItem>
               {empresas.map((e) => (
                 <SelectItem key={e} value={e}>{e}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={safraInicio} onValueChange={setSafraInicio}>
+            <SelectTrigger className="w-36">
+              <SelectValue placeholder="Início" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Início</SelectItem>
+              {allSafras.map((s) => (
+                <SelectItem key={s} value={s}>{s}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <span className="text-sm text-muted-foreground">até</span>
+          <Select value={safraFim} onValueChange={setSafraFim}>
+            <SelectTrigger className="w-36">
+              <SelectValue placeholder="Fim" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Fim</SelectItem>
+              {allSafras.map((s) => (
+                <SelectItem key={s} value={s}>{s}</SelectItem>
               ))}
             </SelectContent>
           </Select>
