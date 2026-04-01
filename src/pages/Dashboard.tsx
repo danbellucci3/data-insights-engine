@@ -41,7 +41,7 @@ export default function Dashboard() {
   const [folhaData, setFolhaData] = useState<any[]>([]);
   const [projetosData, setProjetosData] = useState<any[]>([]);
   const [fornecedoresData, setFornecedoresData] = useState<any[]>([]);
-
+  const [safraRanges, setSafraRanges] = useState<Record<string, { min: string; max: string; count: number }>>({});
   const has = (t: string) => allowedTables.includes(t);
 
   useEffect(() => {
