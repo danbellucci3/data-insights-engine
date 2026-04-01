@@ -56,7 +56,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (!user || tablesLoading) return;
     loadAll();
-  }, [user, selectedEmpresa, tablesLoading, allowedTables]);
+  }, [user, selectedEmpresa, safraInicio, safraFim, tablesLoading, allowedTables]);
 
   const loadEmpresas = async () => {
     const allEmpresas = new Set<string>();
