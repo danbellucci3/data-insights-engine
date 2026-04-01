@@ -234,14 +234,14 @@ export default function Dashboard() {
     if (!has("fornecedores")) setFornecedoresData([]);
 
     // Load safra ranges for each table
-    const safraTablesConfig: { key: string; table: ValidTableName; label: string; safraField: string }[] = [
-      { key: "dre", table: "dre", label: "DRE", safraField: "safra" },
-      { key: "balanco", table: "balanco", label: "Balanço", safraField: "safra" },
-      { key: "investimentos", table: "investimentos", label: "Investimentos", safraField: "data" },
-      { key: "fluxo_de_caixa", table: "fluxo_de_caixa", label: "Fluxo de Caixa", safraField: "data" },
-      { key: "folha_de_pagamento", table: "folha_de_pagamento", label: "Folha de Pagamento", safraField: "safra" },
-      { key: "projetos", table: "projetos", label: "Projetos", safraField: "safra" },
-      { key: "fornecedores", table: "fornecedores", label: "Fornecedores", safraField: "safra" },
+    const safraTablesConfig = [
+      { key: "dre", table: "dre" as ValidTableName, label: "DRE", safraField: "safra" },
+      { key: "balanco", table: "balanco" as ValidTableName, label: "Balanço", safraField: "safra" },
+      { key: "investimentos", table: "investimentos" as ValidTableName, label: "Investimentos", safraField: "data" },
+      { key: "fluxo_de_caixa", table: "fluxo_de_caixa" as ValidTableName, label: "Fluxo de Caixa", safraField: "data" },
+      { key: "folha_de_pagamento", table: "folha_de_pagamento" as ValidTableName, label: "Folha de Pagamento", safraField: "safra" },
+      { key: "projetos", table: "projetos" as ValidTableName, label: "Projetos", safraField: "safra" },
+      { key: "fornecedores", table: "fornecedores" as ValidTableName, label: "Fornecedores", safraField: "safra" },
     ].filter(t => has(t.key));
 
     const safraPromises = safraTablesConfig.map(t =>
@@ -253,7 +253,7 @@ export default function Dashboard() {
     );
     const safraResults = await Promise.all(safraPromises);
     const ranges: Record<string, { min: string; max: string; count: number }> = {};
-    safraResults.forEach(({ key, label, values }) => {
+    safraResults.forEach(({ label, values }) => {
       if (values.length === 0) return;
       const unique = [...new Set(values)].sort();
       ranges[label] = { min: unique[0], max: unique[unique.length - 1], count: unique.length };
