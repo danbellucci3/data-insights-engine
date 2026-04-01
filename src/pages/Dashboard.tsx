@@ -300,7 +300,8 @@ export default function Dashboard() {
     const ranges: Record<string, { min: string; max: string; count: number }> = {};
     safraResults.forEach(({ label, values }) => {
       if (values.length === 0) return;
-      const unique = [...new Set(values)].sort() as string[];
+      const normalized = values.map(v => normalizeSafra(v) ?? v);
+      const unique = [...new Set(normalized)].sort() as string[];
       ranges[label] = { min: unique[0] as string, max: unique[unique.length - 1] as string, count: unique.length };
     });
     setSafraRanges(ranges);
