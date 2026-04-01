@@ -26,7 +26,10 @@ export default function Dashboard() {
   const { allowedTables, loading: tablesLoading } = useAllowedTables();
   const dashboardRef = useRef<HTMLDivElement>(null);
   const [empresas, setEmpresas] = useState<string[]>([]);
+  const [allSafras, setAllSafras] = useState<string[]>([]);
   const [selectedEmpresa, setSelectedEmpresa] = useState<string>("all");
+  const [safraInicio, setSafraInicio] = useState<string>("all");
+  const [safraFim, setSafraFim] = useState<string>("all");
   const [dataLoading, setDataLoading] = useState(true);
   const [stats, setStats] = useState({
     totalInvestimentos: 0,
