@@ -282,7 +282,7 @@ export default function Dashboard() {
     ].filter(t => has(t.key));
 
     const safraPromises = safraTablesConfig.map(t =>
-      filter(supabase.from(t.table).select(t.safraField)).then(res => ({
+      filter(supabase.from(t.table).select(t.safraField), t.key).then(res => ({
         key: t.key,
         label: t.label,
         values: (res.data || []).map((r: any) => r[t.safraField]).filter(Boolean) as string[],
