@@ -207,7 +207,14 @@ export default function Dashboard() {
 
     // Process chart data
     chartKeys.forEach((key, i) => {
-      const data = chartResults[i].data || [];
+      const rawData = chartResults[i].data || [];
+      // Normalize safra fields in chart data
+      const data = rawData.map((row: any) => {
+        const r = { ...row };
+        if (r.safra) r.safra = normalizeSafra(r.safra) ?? r.safra;
+        if (r.data) r.data = normalizeSafra(r.data) ?? r.data;
+        return r;
+      });
       switch (key) {
         case "dre": setDreData(data); break;
         case "fluxo": setFluxoData(data); break;
