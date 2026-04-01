@@ -83,31 +83,52 @@ serve(async (req) => {
       }
     }
 
-    // Fetch all rows using pagination (Supabase default limit is 1000)
-    async function fetchAllRows(table: string, userIds: string[]) {
-      const allRows: any[] = [];
-      const pageSize = 1000;
-      let from = 0;
-      while (true) {
-        const { data } = await supabase
-          .from(table)
-          .select("*")
-          .in("user_id", userIds)
-          .range(from, from + pageSize - 1);
-        if (!data || data.length === 0) break;
-        allRows.push(...data);
-        if (data.length < pageSize) break;
-        from += pageSize;
-      }
-      return allRows;
+    // Fetch rows with a hard cap to avoid exceeding token limits
+    const MAX_ROWS_PER_TABLE = 200;
+
+    async function fetchRows(table: string, userIds: string[]) {
+      const { data } = await supabase
+        .from(table)
+        .select("*")
+        .in("user_id", userIds)
+        .order("created_at", { ascending: false })
+        .limit(MAX_ROWS_PER_TABLE);
+      return data || [];
     }
 
-    const dataContext: Record<string, any[]> = {};
+    const dataContext: Record<string, { rows: any[]; totalCount: number }> = {};
     for (const table of allowedTables) {
-      const rows = await fetchAllRows(table, accessibleUserIds);
+      // Get total count first
+      const { count } = await supabase
+        .from(table)
+        .select("*", { count: "exact", head: true })
+        .in("user_id", accessibleUserIds);
+
+      const rows = await fetchRows(table, accessibleUserIds);
       if (rows.length > 0) {
-        dataContext[table] = rows.map(({ user_id, id, created_at, ...rest }: any) => rest);
+        const cleaned = rows.map(({ user_id, id, created_at, ...rest }: any) => rest);
+        dataContext[table] = { rows: cleaned, totalCount: count || cleaned.length };
       }
+    }
+
+    // Build context with compact JSON (no pretty print) to save tokens
+    const contextParts = Object.entries(dataContext).map(([table, { rows, totalCount }]) => {
+      const truncNote = totalCount > rows.length
+        ? ` (mostrando ${rows.length} de ${totalCount} registros mais recentes)`
+        : "";
+      return `\n### ${table.toUpperCase()} (${totalCount} registros${truncNote}):\n${JSON.stringify(rows)}`;
+    });
+
+    // Estimate token count (~4 chars per token) and further truncate if needed
+    let contextStr = contextParts.join("\n");
+    const estimatedTokens = contextStr.length / 4;
+    if (estimatedTokens > 800000) {
+      // Too large even after limiting rows — reduce to summary only
+      const summaryParts = Object.entries(dataContext).map(([table, { rows, totalCount }]) => {
+        const sample = rows.slice(0, 20);
+        return `\n### ${table.toUpperCase()} (${totalCount} registros, amostra de ${sample.length}):\n${JSON.stringify(sample)}`;
+      });
+      contextStr = summaryParts.join("\n");
     }
 
     const tableLabels: Record<string, string> = {
@@ -130,9 +151,7 @@ IMPORTANTE: Se o usuário perguntar sobre dados dessas tabelas restritas, inform
     const systemPrompt = `Você é um assistente financeiro inteligente. Analise os dados do usuário e responda perguntas de forma clara e precisa em português brasileiro.
 
 DADOS DO USUÁRIO:
-${Object.entries(dataContext).map(([table, rows]) => 
-  `\n### ${table.toUpperCase()} (${rows.length} registros):\n${JSON.stringify(rows, null, 2)}`
-).join("\n")}
+${contextStr}
 ${restrictedInfo}
 
 ANÁLISE DE VISÕES (REAL vs ORÇADO vs FORECAST):
