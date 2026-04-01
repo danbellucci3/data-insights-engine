@@ -151,9 +151,7 @@ IMPORTANTE: Se o usuário perguntar sobre dados dessas tabelas restritas, inform
     const systemPrompt = `Você é um assistente financeiro inteligente. Analise os dados do usuário e responda perguntas de forma clara e precisa em português brasileiro.
 
 DADOS DO USUÁRIO:
-${Object.entries(dataContext).map(([table, rows]) => 
-  `\n### ${table.toUpperCase()} (${rows.length} registros):\n${JSON.stringify(rows, null, 2)}`
-).join("\n")}
+${contextStr}
 ${restrictedInfo}
 
 ANÁLISE DE VISÕES (REAL vs ORÇADO vs FORECAST):
