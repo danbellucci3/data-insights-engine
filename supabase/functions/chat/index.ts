@@ -29,84 +29,83 @@ const tableLabels: Record<string, string> = {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  try {
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
+  // We'll use a ReadableStream to emit status events + AI stream
+  const encoder = new TextEncoder();
 
-    const { messages, userId } = await req.json();
+  function sseEvent(type: string, data: any): Uint8Array {
+    return encoder.encode(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`);
+  }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+  const stream = new ReadableStream({
+    async start(controller) {
+      try {
+        const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+        if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
 
-    const allTables = Object.keys(tableSchemas);
-    const defaultRestrictedTables = ["folha_de_pagamento"];
+        const { messages, userId } = await req.json();
 
-    // --- Determine allowed tables based on user profile/role ---
-    const { data: userProfiles } = await supabase
-      .from("user_access_profiles")
-      .select("profile_id")
-      .eq("user_id", userId);
+        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+        const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+        const supabase = createClient(supabaseUrl, supabaseKey);
 
-    let allowedTables: string[];
-    let restrictedTables: string[];
+        const allTables = Object.keys(tableSchemas);
+        const defaultRestrictedTables = ["folha_de_pagamento"];
 
-    if (userProfiles && userProfiles.length > 0) {
-      const profileIds = userProfiles.map((p: any) => p.profile_id);
-      const { data: profileTables } = await supabase
-        .from("access_profile_tables")
-        .select("table_name")
-        .in("profile_id", profileIds);
+        // Determine allowed tables
+        const { data: userProfiles } = await supabase
+          .from("user_access_profiles")
+          .select("profile_id")
+          .eq("user_id", userId);
 
-      if (profileTables && profileTables.length > 0) {
-        allowedTables = [...new Set(profileTables.map((t: any) => t.table_name))];
-        restrictedTables = allTables.filter(t => !allowedTables.includes(t));
-      } else {
-        allowedTables = allTables.filter(t => !defaultRestrictedTables.includes(t));
-        restrictedTables = defaultRestrictedTables;
-      }
-    } else {
-      allowedTables = allTables.filter(t => !defaultRestrictedTables.includes(t));
-      restrictedTables = defaultRestrictedTables;
-    }
+        let allowedTables: string[];
+        let restrictedTables: string[];
 
-    const { data: roles } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId);
-    const isAdmin = roles?.some((r: any) => r.role === "admin");
-    if (isAdmin) {
-      allowedTables = allTables;
-      restrictedTables = [];
-    }
-
-    // --- Get accessible user IDs (own + shared) ---
-    const accessibleUserIds = [userId];
-    const { data: sharedAccess } = await supabase
-      .from("data_sharing")
-      .select("owner_id")
-      .eq("shared_with_id", userId);
-    if (sharedAccess) {
-      for (const s of sharedAccess) {
-        if (!accessibleUserIds.includes(s.owner_id)) {
-          accessibleUserIds.push(s.owner_id);
+        if (userProfiles && userProfiles.length > 0) {
+          const profileIds = userProfiles.map((p: any) => p.profile_id);
+          const { data: profileTables } = await supabase
+            .from("access_profile_tables")
+            .select("table_name")
+            .in("profile_id", profileIds);
+          if (profileTables && profileTables.length > 0) {
+            allowedTables = [...new Set(profileTables.map((t: any) => t.table_name))];
+            restrictedTables = allTables.filter(t => !allowedTables.includes(t));
+          } else {
+            allowedTables = allTables.filter(t => !defaultRestrictedTables.includes(t));
+            restrictedTables = defaultRestrictedTables;
+          }
+        } else {
+          allowedTables = allTables.filter(t => !defaultRestrictedTables.includes(t));
+          restrictedTables = defaultRestrictedTables;
         }
-      }
-    }
 
-    // --- Build schema description for Step 1 ---
-    const schemaDescription = allowedTables.map(t => {
-      const dateField = (t === "fluxo_de_caixa" || t === "investimentos") ? "data (formato: YYYY-MM-DD)" : "safra (formato: MM/YYYY)";
-      const cols = tableSchemas[t];
-      return `- **${tableLabels[t] || t}** (tabela: \`${t}\`): colunas: ${cols.join(", ")}. Campo de período: ${dateField}`;
-    }).join("\n");
+        const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", userId);
+        const isAdmin = roles?.some((r: any) => r.role === "admin");
+        if (isAdmin) { allowedTables = allTables; restrictedTables = []; }
 
-    const restrictedInfo = restrictedTables.length > 0
-      ? `\n\nTabelas RESTRITAS (sem acesso): ${restrictedTables.map(t => tableLabels[t] || t).join(", ")}`
-      : "";
+        // Accessible user IDs
+        const accessibleUserIds = [userId];
+        const { data: sharedAccess } = await supabase.from("data_sharing").select("owner_id").eq("shared_with_id", userId);
+        if (sharedAccess) {
+          for (const s of sharedAccess) {
+            if (!accessibleUserIds.includes(s.owner_id)) accessibleUserIds.push(s.owner_id);
+          }
+        }
 
-    // --- Step 1: Ask AI what data it needs ---
-    const planningPrompt = `Você é um assistente que analisa perguntas financeiras. Dado a pergunta do usuário e o esquema das tabelas disponíveis, responda APENAS com um JSON indicando quais dados você precisa para responder.
+        // === STATUS: consulting AI ===
+        controller.enqueue(sseEvent("status", { step: "planning", message: "Consultando a IA sobre quais dados são necessários..." }));
+
+        // Build schema description
+        const schemaDescription = allowedTables.map(t => {
+          const dateField = (t === "fluxo_de_caixa" || t === "investimentos") ? "data (formato: YYYY-MM-DD)" : "safra (formato: MM/YYYY)";
+          const cols = tableSchemas[t];
+          return `- **${tableLabels[t] || t}** (tabela: \`${t}\`): colunas: ${cols.join(", ")}. Campo de período: ${dateField}`;
+        }).join("\n");
+
+        const restrictedInfo = restrictedTables.length > 0
+          ? `\n\nTabelas RESTRITAS (sem acesso): ${restrictedTables.map(t => tableLabels[t] || t).join(", ")}`
+          : "";
+
+        const planningPrompt = `Você é um assistente que analisa perguntas financeiras. Dado a pergunta do usuário e o esquema das tabelas disponíveis, responda APENAS com um JSON indicando quais dados você precisa para responder.
 
 TABELAS DISPONÍVEIS:
 ${schemaDescription}
@@ -142,136 +141,114 @@ REGRAS:
 - Solicite apenas as colunas necessárias para responder a pergunta
 - NÃO inclua texto fora do JSON`;
 
-    const userQuestion = messages[messages.length - 1]?.content || "";
-    const conversationContext = messages.slice(-6).map((m: any) => ({ role: m.role, content: m.content }));
+        const conversationContext = messages.slice(-6).map((m: any) => ({ role: m.role, content: m.content }));
 
-    const planResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${GEMINI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gemini-2.5-flash",
-        messages: [
-          { role: "system", content: planningPrompt },
-          ...conversationContext,
-        ],
-        temperature: 0,
-      }),
-    });
-
-    if (!planResponse.ok) {
-      const t = await planResponse.text();
-      console.error("Planning step error:", planResponse.status, t);
-      if (planResponse.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        const planResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${GEMINI_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "gemini-2.5-flash",
+            messages: [{ role: "system", content: planningPrompt }, ...conversationContext],
+            temperature: 0,
+          }),
         });
-      }
-      return new Response(JSON.stringify({ error: "AI gateway error" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
-    const planJson = await planResponse.json();
-    const planText = planJson.choices?.[0]?.message?.content || "";
-    
-    // Parse the JSON from the planning response
-    let plan: { needs_data: boolean; tables: any[] };
-    try {
-      const jsonMatch = planText.match(/\{[\s\S]*\}/);
-      plan = jsonMatch ? JSON.parse(jsonMatch[0]) : { needs_data: false, tables: [] };
-      console.log("AI Plan:", JSON.stringify(plan));
-    } catch {
-      console.error("Failed to parse plan:", planText);
-      plan = { needs_data: false, tables: [] };
-    }
-
-    // --- Step 2: Fetch only the requested data ---
-    let contextStr = "";
-
-    if (plan.needs_data && plan.tables && plan.tables.length > 0) {
-      const dataParts: string[] = [];
-
-      for (const tableReq of plan.tables) {
-        const tableName = tableReq.table;
-        if (!allowedTables.includes(tableName)) continue;
-
-        // Validate columns against schema
-        const validCols = tableSchemas[tableName] || [];
-        const requestedCols = (tableReq.columns || validCols)
-          .filter((c: string) => validCols.includes(c));
-        
-        // Always include empresa and visao
-        const selectCols = [...new Set(["empresa", "visao", ...requestedCols])];
-
-        let query = supabase
-          .from(tableName)
-          .select(selectCols.join(","))
-          .in("user_id", accessibleUserIds);
-
-        const filters = tableReq.filters || {};
-        const dateField = (tableName === "fluxo_de_caixa" || tableName === "investimentos") ? "data" : "safra";
-
-        if (dateField === "data") {
-          if (filters.data_gte) query = query.gte("data", filters.data_gte);
-          if (filters.data_lte) query = query.lte("data", filters.data_lte);
-        } else {
-          if (filters.safra_gte) query = query.gte("safra", filters.safra_gte);
-          if (filters.safra_lte) query = query.lte("safra", filters.safra_lte);
+        if (!planResponse.ok) {
+          const t = await planResponse.text();
+          console.error("Planning step error:", planResponse.status, t);
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: planResponse.status === 429 ? "Rate limit exceeded" : "AI gateway error" })}\n\n`));
+          controller.close();
+          return;
         }
 
-        if (filters.empresa) query = query.eq("empresa", filters.empresa);
+        const planJson = await planResponse.json();
+        const planText = planJson.choices?.[0]?.message?.content || "";
 
-        // Order by date/safra field
-        query = query.order(dateField, { ascending: true });
+        let plan: { needs_data: boolean; tables: any[] };
+        try {
+          const jsonMatch = planText.match(/\{[\s\S]*\}/);
+          plan = jsonMatch ? JSON.parse(jsonMatch[0]) : { needs_data: false, tables: [] };
+          console.log("AI Plan:", JSON.stringify(plan));
+        } catch {
+          console.error("Failed to parse plan:", planText);
+          plan = { needs_data: false, tables: [] };
+        }
 
-        // Paginate to fetch ALL rows (Supabase default limit is 1000)
-        const allRows: any[] = [];
-        const PAGE_SIZE = 1000;
-        let offset = 0;
-        let keepFetching = true;
+        // === STATUS: analyzing request ===
+        if (plan.needs_data && plan.tables?.length > 0) {
+          const requestedTableNames = plan.tables.map((t: any) => tableLabels[t.table] || t.table).join(", ");
+          controller.enqueue(sseEvent("status", { step: "analyzing", message: `Analisando o pedido da IA: ${requestedTableNames}` }));
+        }
 
-        while (keepFetching) {
-          const { data: pageRows, error: pageError } = await query.range(offset, offset + PAGE_SIZE - 1);
-          if (pageError) {
-            console.error(`Error fetching ${tableName} (offset ${offset}):`, pageError);
-            keepFetching = false;
-            break;
+        // Fetch requested data
+        let contextStr = "";
+        if (plan.needs_data && plan.tables && plan.tables.length > 0) {
+          const dataParts: string[] = [];
+
+          // === STATUS: fetching data ===
+          controller.enqueue(sseEvent("status", { step: "fetching", message: "Buscando dados solicitados pela IA..." }));
+
+          for (const tableReq of plan.tables) {
+            const tableName = tableReq.table;
+            if (!allowedTables.includes(tableName)) continue;
+
+            const validCols = tableSchemas[tableName] || [];
+            const requestedCols = (tableReq.columns || validCols).filter((c: string) => validCols.includes(c));
+            const selectCols = [...new Set(["empresa", "visao", ...requestedCols])];
+
+            let query = supabase.from(tableName).select(selectCols.join(",")).in("user_id", accessibleUserIds);
+
+            const filters = tableReq.filters || {};
+            const dateField = (tableName === "fluxo_de_caixa" || tableName === "investimentos") ? "data" : "safra";
+
+            if (dateField === "data") {
+              if (filters.data_gte) query = query.gte("data", filters.data_gte);
+              if (filters.data_lte) query = query.lte("data", filters.data_lte);
+            } else {
+              if (filters.safra_gte) query = query.gte("safra", filters.safra_gte);
+              if (filters.safra_lte) query = query.lte("safra", filters.safra_lte);
+            }
+            if (filters.empresa) query = query.eq("empresa", filters.empresa);
+            query = query.order(dateField, { ascending: true });
+
+            // Paginate to fetch ALL rows
+            const allRows: any[] = [];
+            const PAGE_SIZE = 1000;
+            let offset = 0;
+            let keepFetching = true;
+            while (keepFetching) {
+              const { data: pageRows, error: pageError } = await query.range(offset, offset + PAGE_SIZE - 1);
+              if (pageError) { console.error(`Error fetching ${tableName}:`, pageError); break; }
+              if (pageRows && pageRows.length > 0) {
+                allRows.push(...pageRows);
+                offset += pageRows.length;
+                if (pageRows.length < PAGE_SIZE) keepFetching = false;
+              } else { keepFetching = false; }
+            }
+
+            console.log(`Table ${tableName}: fetched ${allRows.length} rows total`);
+
+            if (allRows.length > 0) {
+              const cleanRows = allRows.map((r: any) => {
+                const { user_id, id, created_at, ...rest } = r;
+                return rest;
+              });
+              dataParts.push(`### ${tableLabels[tableName] || tableName} (${cleanRows.length} registros):\n${JSON.stringify(cleanRows)}`);
+            } else {
+              dataParts.push(`### ${tableLabels[tableName] || tableName}: Nenhum registro encontrado com os filtros aplicados.`);
+            }
           }
-          if (pageRows && pageRows.length > 0) {
-            allRows.push(...pageRows);
-            offset += pageRows.length;
-            if (pageRows.length < PAGE_SIZE) keepFetching = false;
-          } else {
-            keepFetching = false;
-          }
+          contextStr = dataParts.join("\n\n");
         }
 
-        console.log(`Table ${tableName}: fetched ${allRows.length} rows total`);
+        // === STATUS: generating response ===
+        controller.enqueue(sseEvent("status", { step: "responding", message: "Gerando resposta..." }));
 
-        if (allRows.length > 0) {
-          // Remove user_id, id, created_at to save tokens
-          const cleanRows = allRows.map((r: any) => {
-            const { user_id, id, created_at, ...rest } = r;
-            return rest;
-          });
-          dataParts.push(`### ${tableLabels[tableName] || tableName} (${cleanRows.length} registros):\n${JSON.stringify(cleanRows)}`);
-        } else {
-          dataParts.push(`### ${tableLabels[tableName] || tableName}: Nenhum registro encontrado com os filtros aplicados.`);
-        }
-      }
+        const restrictedFinalInfo = restrictedTables.length > 0
+          ? `\n\nTABELAS RESTRITAS (o usuário NÃO tem acesso):\n${restrictedTables.map(t => `- ${tableLabels[t] || t}`).join("\n")}\nSe o usuário perguntar sobre dados dessas tabelas, informe que ele não tem permissão.`
+          : "";
 
-      contextStr = dataParts.join("\n\n");
-    }
-
-    // --- Step 3: Final response with streaming ---
-    const restrictedFinalInfo = restrictedTables.length > 0
-      ? `\n\nTABELAS RESTRITAS (o usuário NÃO tem acesso):\n${restrictedTables.map(t => `- ${tableLabels[t] || t}`).join("\n")}\nSe o usuário perguntar sobre dados dessas tabelas, informe que ele não tem permissão.`
-      : "";
-
-    const systemPrompt = `Você é um assistente financeiro inteligente. Analise os dados do usuário e responda perguntas de forma clara e precisa em português brasileiro.
+        const systemPrompt = `Você é um assistente financeiro inteligente. Analise os dados do usuário e responda perguntas de forma clara e precisa em português brasileiro.
 
 ${contextStr ? `DADOS DO USUÁRIO:\n${contextStr}` : "Nenhum dado disponível nas tabelas para esta consulta."}
 ${restrictedFinalInfo}
@@ -306,42 +283,41 @@ Quando o usuário pedir gráfico ou comparação visual, inclua:
 - Valores numéricos sem formatação
 - Para comparar visões, use múltiplas séries`;
 
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${GEMINI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...messages,
-        ],
-        stream: true,
-      }),
-    });
-
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${GEMINI_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "gemini-2.5-flash",
+            messages: [{ role: "system", content: systemPrompt }, ...messages],
+            stream: true,
+          }),
         });
-      }
-      const t = await response.text();
-      console.error("AI gateway error:", response.status, t);
-      return new Response(JSON.stringify({ error: "AI gateway error" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
-    return new Response(response.body, {
-      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
-    });
-  } catch (e) {
-    console.error("chat error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+        if (!response.ok) {
+          const t = await response.text();
+          console.error("AI gateway error:", response.status, t);
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: response.status === 429 ? "Rate limit exceeded" : "AI gateway error" })}\n\n`));
+          controller.close();
+          return;
+        }
+
+        // Pipe AI stream through
+        const reader = response.body!.getReader();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          controller.enqueue(value);
+        }
+        controller.close();
+      } catch (e) {
+        console.error("chat error:", e);
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" })}\n\n`));
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+  });
 });
