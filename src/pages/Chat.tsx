@@ -8,12 +8,36 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Send, Bot, User, Loader2, Plus, MessageSquare, Trash2, X } from "lucide-react";
+import {
+  Send, Bot, User, Plus, MessageSquare, Trash2, X,
+  TrendingUp, DollarSign, BarChart3, PieChart, FileText, Search,
+  Loader2, CheckCircle2, Database, BrainCircuit
+} from "lucide-react";
 import ChatChart, { parseChartBlocks } from "@/components/ChatChart";
 import { cn } from "@/lib/utils";
 
 type Msg = { role: "user" | "assistant"; content: string };
 type Conversation = { id: string; title: string | null; updated_at: string };
+type StatusStep = {
+  step: "planning" | "analyzing" | "fetching" | "responding";
+  message: string;
+};
+
+const SUGGESTED_QUESTIONS = [
+  { icon: DollarSign, text: "Qual a posição atual de caixa?", color: "text-emerald-600" },
+  { icon: TrendingUp, text: "Qual o EBITDA acumulado do ano?", color: "text-blue-600" },
+  { icon: BarChart3, text: "Compare o faturamento real vs orçado", color: "text-violet-600" },
+  { icon: PieChart, text: "Qual a composição do balanço patrimonial?", color: "text-amber-600" },
+  { icon: FileText, text: "Quais fornecedores têm contrato ativo?", color: "text-rose-600" },
+  { icon: Search, text: "Qual o saldo total de investimentos?", color: "text-cyan-600" },
+];
+
+const STATUS_CONFIG: Record<string, { icon: typeof Loader2; label: string }> = {
+  planning: { icon: BrainCircuit, label: "Consultando a IA..." },
+  analyzing: { icon: Search, label: "Analisando o pedido..." },
+  fetching: { icon: Database, label: "Buscando dados..." },
+  responding: { icon: Bot, label: "Gerando resposta..." },
+};
 
 export default function ChatPage() {
   const { user } = useAuth();
@@ -23,14 +47,15 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [statusSteps, setStatusSteps] = useState<StatusStep[]>([]);
+  const [currentStep, setCurrentStep] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 768);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, statusSteps]);
 
-  // Load conversations
   useEffect(() => {
     if (!user) return;
     loadConversations();
@@ -89,16 +114,18 @@ export default function ChatPage() {
     toast({ title: "Histórico apagado", description: "Todas as conversas foram removidas." });
   };
 
-  const send = async () => {
-    if (!input.trim() || isLoading || !user) return;
-    const userMsg: Msg = { role: "user", content: input.trim() };
+  const send = async (overrideInput?: string) => {
+    const text = overrideInput ?? input.trim();
+    if (!text || isLoading || !user) return;
+    const userMsg: Msg = { role: "user", content: text };
     setInput("");
     setMessages((prev) => [...prev, userMsg]);
     setIsLoading(true);
+    setStatusSteps([]);
+    setCurrentStep(null);
 
     let convId = activeConvId;
 
-    // Create conversation if new
     if (!convId) {
       const title = userMsg.content.slice(0, 60);
       const { data: newConv } = await supabase
@@ -112,13 +139,9 @@ export default function ChatPage() {
       }
     }
 
-    // Save user message
     if (convId) {
       await supabase.from("chat_messages").insert({
-        conversation_id: convId,
-        user_id: user.id,
-        role: "user",
-        content: userMsg.content,
+        conversation_id: convId, user_id: user.id, role: "user", content: userMsg.content,
       });
     }
 
@@ -153,6 +176,7 @@ export default function ChatPage() {
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
       let textBuffer = "";
+      let streamingStarted = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -164,6 +188,27 @@ export default function ChatPage() {
           let line = textBuffer.slice(0, newlineIndex);
           textBuffer = textBuffer.slice(newlineIndex + 1);
           if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (line.trim() === "") continue;
+
+          // Handle custom status events
+          if (line.startsWith("event: status")) {
+            // Next data line has the payload
+            continue;
+          }
+
+          if (line.startsWith("data: ") && !streamingStarted) {
+            const jsonStr = line.slice(6).trim();
+            // Try to parse as status event
+            try {
+              const parsed = JSON.parse(jsonStr);
+              if (parsed.step && parsed.message) {
+                setStatusSteps(prev => [...prev, { step: parsed.step, message: parsed.message }]);
+                setCurrentStep(parsed.step);
+                continue;
+              }
+            } catch { /* not a status event, continue */ }
+          }
+
           if (line.startsWith(":") || line.trim() === "") continue;
           if (!line.startsWith("data: ")) continue;
 
@@ -174,6 +219,11 @@ export default function ChatPage() {
             const parsed = JSON.parse(jsonStr);
             const content = parsed.choices?.[0]?.delta?.content;
             if (content) {
+              if (!streamingStarted) {
+                streamingStarted = true;
+                setStatusSteps([]);
+                setCurrentStep(null);
+              }
               assistantSoFar += content;
               setMessages((prev) => {
                 const last = prev[prev.length - 1];
@@ -190,15 +240,10 @@ export default function ChatPage() {
         }
       }
 
-      // Save assistant message
       if (convId && assistantSoFar) {
         await supabase.from("chat_messages").insert({
-          conversation_id: convId,
-          user_id: user.id,
-          role: "assistant",
-          content: assistantSoFar,
+          conversation_id: convId, user_id: user.id, role: "assistant", content: assistantSoFar,
         });
-        // Update conversation updated_at
         await supabase.from("chat_conversations").update({ updated_at: new Date().toISOString() }).eq("id", convId);
       }
 
@@ -207,8 +252,12 @@ export default function ChatPage() {
       toast({ title: "Erro no chat", description: e.message, variant: "destructive" });
     } finally {
       setIsLoading(false);
+      setStatusSteps([]);
+      setCurrentStep(null);
     }
   };
+
+  const stepOrder = ["planning", "analyzing", "fetching", "responding"];
 
   return (
     <div className="flex h-full">
@@ -276,13 +325,26 @@ export default function ChatPage() {
 
         <ScrollArea className="flex-1 p-4 md:p-6">
           <div className="mx-auto max-w-3xl space-y-4">
-            {messages.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-20 text-center">
+            {/* Empty state with suggestion buttons */}
+            {messages.length === 0 && !isLoading && (
+              <div className="flex flex-col items-center justify-center py-12 text-center animate-fade-in">
                 <Bot className="mb-4 h-12 w-12 text-muted-foreground/40" />
-                <h3 className="text-lg font-medium">Pergunte sobre seus dados</h3>
-                <p className="max-w-md text-sm text-muted-foreground">
-                  Exemplos: "Qual o saldo de investimentos da Empresa X?", "Qual o EBITDA da safra 2024?", "Quais fornecedores têm contrato ativo?"
+                <h3 className="text-lg font-medium mb-2">Pergunte sobre seus dados</h3>
+                <p className="max-w-md text-sm text-muted-foreground mb-8">
+                  Selecione uma sugestão abaixo ou digite sua própria pergunta.
                 </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg">
+                  {SUGGESTED_QUESTIONS.map((q, i) => (
+                    <button
+                      key={i}
+                      onClick={() => send(q.text)}
+                      className="flex items-center gap-3 rounded-xl border bg-card p-4 text-left text-sm transition-all duration-200 hover:bg-accent hover:shadow-md hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                      <q.icon className={cn("h-5 w-5 flex-shrink-0", q.color)} />
+                      <span className="text-foreground">{q.text}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -316,7 +378,53 @@ export default function ChatPage() {
               </div>
             ))}
 
-            {isLoading && messages[messages.length - 1]?.role !== "assistant" && (
+            {/* Multi-step status animation */}
+            {isLoading && statusSteps.length > 0 && messages[messages.length - 1]?.role !== "assistant" && (
+              <div className="flex gap-3 animate-fade-in">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary">
+                  <Bot className="h-4 w-4 text-primary-foreground" />
+                </div>
+                <Card className="p-4 w-full max-w-[80%]">
+                  <div className="space-y-3">
+                    {stepOrder.map((stepKey) => {
+                      const completed = statusSteps.some(s => s.step === stepKey) &&
+                        stepOrder.indexOf(currentStep || "") > stepOrder.indexOf(stepKey);
+                      const active = currentStep === stepKey;
+                      const pending = !statusSteps.some(s => s.step === stepKey);
+                      const config = STATUS_CONFIG[stepKey];
+                      if (pending) return null;
+
+                      const Icon = config.icon;
+                      const statusMsg = statusSteps.find(s => s.step === stepKey)?.message || config.label;
+
+                      return (
+                        <div
+                          key={stepKey}
+                          className={cn(
+                            "flex items-center gap-3 text-sm transition-all duration-300",
+                            active ? "text-foreground" : "text-muted-foreground"
+                          )}
+                        >
+                          {completed ? (
+                            <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                          ) : active ? (
+                            <Loader2 className="h-4 w-4 animate-spin text-primary flex-shrink-0" />
+                          ) : (
+                            <Icon className="h-4 w-4 flex-shrink-0" />
+                          )}
+                          <span className={cn(completed && "line-through opacity-60")}>
+                            {statusMsg}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </Card>
+              </div>
+            )}
+
+            {/* Fallback loading if no status events yet */}
+            {isLoading && statusSteps.length === 0 && messages[messages.length - 1]?.role !== "assistant" && (
               <div className="flex gap-3">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary">
                   <Bot className="h-4 w-4 text-primary-foreground" />
