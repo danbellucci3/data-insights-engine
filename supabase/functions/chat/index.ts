@@ -182,6 +182,7 @@ REGRAS:
     try {
       const jsonMatch = planText.match(/\{[\s\S]*\}/);
       plan = jsonMatch ? JSON.parse(jsonMatch[0]) : { needs_data: false, tables: [] };
+      console.log("AI Plan:", JSON.stringify(plan));
     } catch {
       console.error("Failed to parse plan:", planText);
       plan = { needs_data: false, tables: [] };
