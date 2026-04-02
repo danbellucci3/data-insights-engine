@@ -226,14 +226,37 @@ REGRAS:
         // Order by date/safra field
         query = query.order(dateField, { ascending: true });
 
-        const { data: rows, error } = await query;
-        if (error) {
-          console.error(`Error fetching ${tableName}:`, error);
-          continue;
+        // Paginate to fetch ALL rows (Supabase default limit is 1000)
+        const allRows: any[] = [];
+        const PAGE_SIZE = 1000;
+        let offset = 0;
+        let keepFetching = true;
+
+        while (keepFetching) {
+          const { data: pageRows, error: pageError } = await query.range(offset, offset + PAGE_SIZE - 1);
+          if (pageError) {
+            console.error(`Error fetching ${tableName} (offset ${offset}):`, pageError);
+            keepFetching = false;
+            break;
+          }
+          if (pageRows && pageRows.length > 0) {
+            allRows.push(...pageRows);
+            offset += pageRows.length;
+            if (pageRows.length < PAGE_SIZE) keepFetching = false;
+          } else {
+            keepFetching = false;
+          }
         }
 
-        if (rows && rows.length > 0) {
-          dataParts.push(`### ${tableLabels[tableName] || tableName} (${rows.length} registros):\n${JSON.stringify(rows)}`);
+        console.log(`Table ${tableName}: fetched ${allRows.length} rows total`);
+
+        if (allRows.length > 0) {
+          // Remove user_id, id, created_at to save tokens
+          const cleanRows = allRows.map((r: any) => {
+            const { user_id, id, created_at, ...rest } = r;
+            return rest;
+          });
+          dataParts.push(`### ${tableLabels[tableName] || tableName} (${cleanRows.length} registros):\n${JSON.stringify(cleanRows)}`);
         } else {
           dataParts.push(`### ${tableLabels[tableName] || tableName}: Nenhum registro encontrado com os filtros aplicados.`);
         }
