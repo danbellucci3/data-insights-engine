@@ -201,9 +201,17 @@ export default function ChatPage() {
 
           if (line.startsWith("data: ") && !streamingStarted) {
             const jsonStr = line.slice(6).trim();
-            // Try to parse as status event
             try {
               const parsed = JSON.parse(jsonStr);
+              // Handle context_data event
+              if (parsed && typeof parsed === "object" && !parsed.step && !parsed.choices) {
+                // Check if it looks like context data (has table keys with label+rows)
+                const keys = Object.keys(parsed);
+                if (keys.length > 0 && parsed[keys[0]]?.rows) {
+                  capturedContextData = parsed as ContextData;
+                  continue;
+                }
+              }
               if (parsed.step && parsed.message) {
                 setStatusSteps(prev => [...prev, { step: parsed.step, message: parsed.message }]);
                 setCurrentStep(parsed.step);
