@@ -16,6 +16,16 @@ const tableSchemas: Record<string, string[]> = {
   fornecedores: ["empresa", "visao", "safra", "nome_fornecedor", "data_inicio_contrato", "data_fim_contrato", "valor_contrato"],
 };
 
+// Continuous (numeric) columns - we do NOT send their distinct values
+const continuousColumns = new Set([
+  "valor_bruto", "receita_bruta_dia", "remuneracao_dia_cdi", "imposto_renda",
+  "faturamento", "custos", "despesa", "impostos", "ebitda", "lucro_liquido",
+  "ativo_circulante", "ativo_nao_circulante", "passivo_circulante",
+  "passivo_nao_circulante", "patrimonio_liquido",
+  "total_entradas", "total_saidas", "saldo_conta_corrente",
+  "valor", "valor_contrato",
+]);
+
 const tableLabels: Record<string, string> = {
   investimentos: "Investimentos",
   dre: "DRE",
@@ -94,11 +104,40 @@ serve(async (req) => {
         // === STATUS: consulting AI ===
         controller.enqueue(sseEvent("status", { step: "planning", message: "Consultando a IA sobre quais dados são necessários..." }));
 
-        // Build schema description
+        // Fetch distinct values for discrete columns of each allowed table
+        controller.enqueue(sseEvent("status", { step: "planning", message: "Mapeando valores disponíveis nas tabelas..." }));
+
+        const discreteValuesMap: Record<string, Record<string, string[]>> = {};
+        await Promise.all(allowedTables.map(async (tableName) => {
+          const cols = tableSchemas[tableName];
+          const discreteCols = cols.filter(c => !continuousColumns.has(c));
+          const tableValues: Record<string, string[]> = {};
+
+          await Promise.all(discreteCols.map(async (col) => {
+            const { data: rows } = await supabase
+              .from(tableName)
+              .select(col)
+              .in("user_id", accessibleUserIds)
+              .limit(500);
+            if (rows && rows.length > 0) {
+              const uniqueVals = [...new Set(rows.map((r: any) => r[col]).filter((v: any) => v !== null && v !== undefined).map(String))];
+              uniqueVals.sort();
+              tableValues[col] = uniqueVals;
+            }
+          }));
+
+          discreteValuesMap[tableName] = tableValues;
+        }));
+
+        // Build schema description with discrete values
         const schemaDescription = allowedTables.map(t => {
           const dateField = (t === "fluxo_de_caixa" || t === "investimentos") ? "data (formato: YYYY-MM-DD)" : "safra (formato: MM/YYYY)";
           const cols = tableSchemas[t];
-          return `- **${tableLabels[t] || t}** (tabela: \`${t}\`): colunas: ${cols.join(", ")}. Campo de período: ${dateField}`;
+          const discreteInfo = Object.entries(discreteValuesMap[t] || {})
+            .filter(([_, vals]) => vals.length > 0)
+            .map(([col, vals]) => `    - ${col}: [${vals.join(", ")}]`)
+            .join("\n");
+          return `- **${tableLabels[t] || t}** (tabela: \`${t}\`): colunas: ${cols.join(", ")}. Campo de período: ${dateField}${discreteInfo ? `\n  Valores existentes:\n${discreteInfo}` : ""}`;
         }).join("\n");
 
         const restrictedInfo = restrictedTables.length > 0
