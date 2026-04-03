@@ -376,21 +376,34 @@ export default function ChatPage() {
                     <Bot className="h-4 w-4 text-primary-foreground" />
                   </div>
                 )}
-                <Card className={`max-w-[80%] p-4 ${msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-card"}`}>
-                  {msg.role === "assistant" ? (
-                    <div className="prose prose-sm max-w-none dark:prose-invert">
-                      {parseChartBlocks(msg.content).map((seg, j) =>
-                        seg.type === "chart" ? (
-                          <ChatChart key={j} chart={seg.value} />
-                        ) : (
-                          <ReactMarkdown key={j} remarkPlugins={[remarkGfm]}>{seg.value}</ReactMarkdown>
-                        )
-                      )}
-                    </div>
-                  ) : (
-                    <p className="text-sm">{msg.content}</p>
+                <div className="max-w-[80%] space-y-2">
+                  <Card className={`p-4 ${msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-card"}`}>
+                    {msg.role === "assistant" ? (
+                      <div className="prose prose-sm max-w-none dark:prose-invert">
+                        {parseChartBlocks(msg.content).map((seg, j) =>
+                          seg.type === "chart" ? (
+                            <ChatChart key={j} chart={seg.value} />
+                          ) : (
+                            <ReactMarkdown key={j} remarkPlugins={[remarkGfm]}>{seg.value}</ReactMarkdown>
+                          )
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm">{msg.content}</p>
+                    )}
+                  </Card>
+                  {msg.role === "assistant" && msg.contextData && Object.keys(msg.contextData).length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2 text-xs"
+                      onClick={() => downloadContextData(msg.contextData!)}
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Baixar dados utilizados
+                    </Button>
                   )}
-                </Card>
+                </div>
                 {msg.role === "user" && (
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted">
                     <User className="h-4 w-4 text-muted-foreground" />
