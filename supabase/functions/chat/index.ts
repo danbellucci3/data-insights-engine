@@ -16,7 +16,6 @@ const tableSchemas: Record<string, string[]> = {
   fornecedores: ["empresa", "visao", "safra", "nome_fornecedor", "data_inicio_contrato", "data_fim_contrato", "valor_contrato"],
 };
 
-// Continuous (numeric) columns - we do NOT send their distinct values
 const continuousColumns = new Set([
   "valor_bruto", "receita_bruta_dia", "remuneracao_dia_cdi", "imposto_renda",
   "faturamento", "custos", "despesa", "impostos", "ebitda", "lucro_liquido",
@@ -39,11 +38,24 @@ const tableLabels: Record<string, string> = {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  // We'll use a ReadableStream to emit status events + AI stream
   const encoder = new TextEncoder();
+  let closed = false;
 
   function sseEvent(type: string, data: any): Uint8Array {
     return encoder.encode(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`);
+  }
+
+  function safeEnqueue(controller: ReadableStreamDefaultController, chunk: Uint8Array) {
+    if (!closed) {
+      try { controller.enqueue(chunk); } catch { closed = true; }
+    }
+  }
+
+  function safeClose(controller: ReadableStreamDefaultController) {
+    if (!closed) {
+      closed = true;
+      try { controller.close(); } catch { /* already closed */ }
+    }
   }
 
   const stream = new ReadableStream({
@@ -101,11 +113,12 @@ serve(async (req) => {
           }
         }
 
-        // === STATUS: consulting AI ===
-        controller.enqueue(sseEvent("status", { step: "planning", message: "Consultando a IA sobre quais dados são necessários..." }));
-
-        // Fetch distinct values for discrete columns of each allowed table
-        controller.enqueue(sseEvent("status", { step: "planning", message: "Mapeando valores disponíveis nas tabelas..." }));
+        // === Step 1: Map discrete values ===
+        safeEnqueue(controller, sseEvent("status", {
+          step: "planning",
+          message: "Mapeando valores disponíveis nas tabelas...",
+          details: { sent: `Consultando valores únicos das colunas categóricas de ${allowedTables.length} tabelas permitidas: ${allowedTables.map(t => tableLabels[t] || t).join(", ")}` },
+        }));
 
         const discreteValuesMap: Record<string, Record<string, string[]>> = {};
         await Promise.all(allowedTables.map(async (tableName) => {
@@ -114,13 +127,24 @@ serve(async (req) => {
           const tableValues: Record<string, string[]> = {};
 
           await Promise.all(discreteCols.map(async (col) => {
-            const { data: rows } = await supabase
-              .from(tableName)
-              .select(col)
-              .in("user_id", accessibleUserIds)
-              .limit(500);
-            if (rows && rows.length > 0) {
-              const uniqueVals = [...new Set(rows.map((r: any) => r[col]).filter((v: any) => v !== null && v !== undefined).map(String))];
+            const allVals: any[] = [];
+            const PAGE = 1000;
+            let offset = 0;
+            let more = true;
+            while (more) {
+              const { data: rows } = await supabase
+                .from(tableName)
+                .select(col)
+                .in("user_id", accessibleUserIds)
+                .range(offset, offset + PAGE - 1);
+              if (rows && rows.length > 0) {
+                allVals.push(...rows);
+                offset += rows.length;
+                if (rows.length < PAGE) more = false;
+              } else { more = false; }
+            }
+            if (allVals.length > 0) {
+              const uniqueVals = [...new Set(allVals.map((r: any) => r[col]).filter((v: any) => v !== null && v !== undefined).map(String))];
               uniqueVals.sort();
               tableValues[col] = uniqueVals;
             }
@@ -129,7 +153,7 @@ serve(async (req) => {
           discreteValuesMap[tableName] = tableValues;
         }));
 
-        // Build schema description with discrete values
+        // Build schema description
         const schemaDescription = allowedTables.map(t => {
           const dateField = (t === "fluxo_de_caixa" || t === "investimentos") ? "data (formato: YYYY-MM-DD)" : "safra (formato: MM/YYYY)";
           const cols = tableSchemas[t];
@@ -143,6 +167,26 @@ serve(async (req) => {
         const restrictedInfo = restrictedTables.length > 0
           ? `\n\nTabelas RESTRITAS (sem acesso): ${restrictedTables.map(t => tableLabels[t] || t).join(", ")}`
           : "";
+
+        // Build a compact summary of discrete values for the status event
+        const discreteSummary: Record<string, Record<string, number>> = {};
+        for (const [tbl, colVals] of Object.entries(discreteValuesMap)) {
+          const summary: Record<string, number> = {};
+          for (const [col, vals] of Object.entries(colVals)) {
+            summary[col] = vals.length;
+          }
+          if (Object.keys(summary).length > 0) discreteSummary[tableLabels[tbl] || tbl] = summary;
+        }
+
+        // === Step 2: Ask AI what data it needs ===
+        safeEnqueue(controller, sseEvent("status", {
+          step: "analyzing",
+          message: "Consultando a IA sobre quais dados são necessários...",
+          details: {
+            sent: `Esquema de ${allowedTables.length} tabelas com valores categóricos mapeados`,
+            schemaPreview: discreteSummary,
+          },
+        }));
 
         const planningPrompt = `Você é um assistente que analisa perguntas financeiras. Dado a pergunta do usuário e o esquema das tabelas disponíveis, responda APENAS com um JSON indicando quais dados você precisa para responder.
 
@@ -195,8 +239,8 @@ REGRAS:
         if (!planResponse.ok) {
           const t = await planResponse.text();
           console.error("Planning step error:", planResponse.status, t);
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: planResponse.status === 429 ? "Rate limit exceeded" : "AI gateway error" })}\n\n`));
-          controller.close();
+          safeEnqueue(controller, encoder.encode(`data: ${JSON.stringify({ error: planResponse.status === 429 ? "Rate limit exceeded" : "AI gateway error" })}\n\n`));
+          safeClose(controller);
           return;
         }
 
@@ -213,20 +257,27 @@ REGRAS:
           plan = { needs_data: false, tables: [] };
         }
 
-        // === STATUS: analyzing request ===
-        if (plan.needs_data && plan.tables?.length > 0) {
-          const requestedTableNames = plan.tables.map((t: any) => tableLabels[t.table] || t.table).join(", ");
-          controller.enqueue(sseEvent("status", { step: "analyzing", message: `Analisando o pedido da IA: ${requestedTableNames}` }));
-        }
-
-        // Fetch requested data
+        // === Step 3: Fetch data ===
         let contextStr = "";
-        if (plan.needs_data && plan.tables && plan.tables.length > 0) {
-          const dataParts: string[] = [];
-          const contextDataForDownload: Record<string, { label: string; rows: any[] }> = {};
+        const contextDataForDownload: Record<string, { label: string; rows: any[] }> = {};
 
-          // === STATUS: fetching data ===
-          controller.enqueue(sseEvent("status", { step: "fetching", message: "Buscando dados solicitados pela IA..." }));
+        if (plan.needs_data && plan.tables && plan.tables.length > 0) {
+          const requestedSummary = plan.tables.map((t: any) => {
+            const label = tableLabels[t.table] || t.table;
+            const cols = (t.columns || []).join(", ");
+            const filtersStr = t.filters ? Object.entries(t.filters).map(([k, v]) => `${k}=${v}`).join(", ") : "sem filtros";
+            return `${label}: colunas [${cols}], filtros: ${filtersStr}`;
+          });
+
+          safeEnqueue(controller, sseEvent("status", {
+            step: "fetching",
+            message: "Buscando dados solicitados pela IA...",
+            details: {
+              requestedByAI: requestedSummary,
+            },
+          }));
+
+          const dataParts: string[] = [];
 
           for (const tableReq of plan.tables) {
             const tableName = tableReq.table;
@@ -284,14 +335,25 @@ REGRAS:
           }
           contextStr = dataParts.join("\n\n");
 
-          // Send the raw context data to the client for download
           if (Object.keys(contextDataForDownload).length > 0) {
-            controller.enqueue(sseEvent("context_data", contextDataForDownload));
+            safeEnqueue(controller, sseEvent("context_data", contextDataForDownload));
           }
         }
 
-        // === STATUS: generating response ===
-        controller.enqueue(sseEvent("status", { step: "responding", message: "Gerando resposta..." }));
+        // === Step 4: Generate response ===
+        const fetchedSummary = Object.entries(contextDataForDownload).map(([tbl, { label, rows }]) =>
+          `${label}: ${rows.length} registros`
+        );
+
+        safeEnqueue(controller, sseEvent("status", {
+          step: "responding",
+          message: "Gerando resposta...",
+          details: {
+            sent: fetchedSummary.length > 0
+              ? `Enviados ${fetchedSummary.join(", ")} para a IA processar`
+              : "Nenhum dado de tabela necessário para esta resposta",
+          },
+        }));
 
         const restrictedFinalInfo = restrictedTables.length > 0
           ? `\n\nTABELAS RESTRITAS (o usuário NÃO tem acesso):\n${restrictedTables.map(t => `- ${tableLabels[t] || t}`).join("\n")}\nSe o usuário perguntar sobre dados dessas tabelas, informe que ele não tem permissão.`
@@ -345,23 +407,22 @@ Quando o usuário pedir gráfico ou comparação visual, inclua:
         if (!response.ok) {
           const t = await response.text();
           console.error("AI gateway error:", response.status, t);
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: response.status === 429 ? "Rate limit exceeded" : "AI gateway error" })}\n\n`));
-          controller.close();
+          safeEnqueue(controller, encoder.encode(`data: ${JSON.stringify({ error: response.status === 429 ? "Rate limit exceeded" : "AI gateway error" })}\n\n`));
+          safeClose(controller);
           return;
         }
 
-        // Pipe AI stream through
         const reader = response.body!.getReader();
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-          controller.enqueue(value);
+          safeEnqueue(controller, value);
         }
-        controller.close();
+        safeClose(controller);
       } catch (e) {
         console.error("chat error:", e);
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" })}\n\n`));
-        controller.close();
+        safeEnqueue(controller, encoder.encode(`data: ${JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" })}\n\n`));
+        safeClose(controller);
       }
     },
   });
