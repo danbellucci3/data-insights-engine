@@ -223,6 +223,7 @@ REGRAS:
         let contextStr = "";
         if (plan.needs_data && plan.tables && plan.tables.length > 0) {
           const dataParts: string[] = [];
+          const contextDataForDownload: Record<string, { label: string; rows: any[] }> = {};
 
           // === STATUS: fetching data ===
           controller.enqueue(sseEvent("status", { step: "fetching", message: "Buscando dados solicitados pela IA..." }));
