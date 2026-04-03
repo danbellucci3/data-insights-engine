@@ -238,9 +238,9 @@ export default function ChatPage() {
               setMessages((prev) => {
                 const last = prev[prev.length - 1];
                 if (last?.role === "assistant") {
-                  return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: assistantSoFar } : m));
+                  return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: assistantSoFar, contextData: capturedContextData } : m));
                 }
-                return [...prev, { role: "assistant", content: assistantSoFar }];
+                return [...prev, { role: "assistant", content: assistantSoFar, contextData: capturedContextData }];
               });
             }
           } catch {
