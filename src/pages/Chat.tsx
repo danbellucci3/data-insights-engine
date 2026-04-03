@@ -267,6 +267,17 @@ export default function ChatPage() {
     }
   };
 
+  const downloadContextData = (contextData: ContextData) => {
+    const wb = XLSX.utils.book_new();
+    for (const [, { label, rows }] of Object.entries(contextData)) {
+      if (rows.length === 0) continue;
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const sheetName = label.slice(0, 31); // Excel limit
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    }
+    XLSX.writeFile(wb, "dados_analise.xlsx");
+  };
+
   const stepOrder = ["planning", "analyzing", "fetching", "responding"];
 
   return (
