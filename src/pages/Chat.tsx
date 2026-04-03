@@ -11,18 +11,24 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Send, Bot, User, Plus, MessageSquare, Trash2, X,
   TrendingUp, DollarSign, BarChart3, PieChart, FileText, Search,
-  Loader2, CheckCircle2, Database, BrainCircuit, Download
+  Loader2, CheckCircle2, Database, BrainCircuit, Download, ChevronDown
 } from "lucide-react";
 import ChatChart, { parseChartBlocks } from "@/components/ChatChart";
 import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
 
 type ContextData = Record<string, { label: string; rows: any[] }>;
+type StatusDetails = {
+  sent?: string;
+  schemaPreview?: Record<string, Record<string, number>>;
+  requestedByAI?: string[];
+};
 type Msg = { role: "user" | "assistant"; content: string; contextData?: ContextData };
 type Conversation = { id: string; title: string | null; updated_at: string };
 type StatusStep = {
   step: "planning" | "analyzing" | "fetching" | "responding";
   message: string;
+  details?: StatusDetails;
 };
 
 const SUGGESTED_QUESTIONS = [
@@ -35,11 +41,54 @@ const SUGGESTED_QUESTIONS = [
 ];
 
 const STATUS_CONFIG: Record<string, { icon: typeof Loader2; label: string }> = {
-  planning: { icon: BrainCircuit, label: "Consultando a IA..." },
-  analyzing: { icon: Search, label: "Analisando o pedido..." },
+  planning: { icon: BrainCircuit, label: "Mapeando dados..." },
+  analyzing: { icon: Search, label: "Consultando a IA..." },
   fetching: { icon: Database, label: "Buscando dados..." },
   responding: { icon: Bot, label: "Gerando resposta..." },
 };
+
+function StatusDetailsBlock({ details }: { details?: StatusDetails }) {
+  const [open, setOpen] = useState(false);
+  if (!details) return null;
+
+  const hasContent = details.sent || details.requestedByAI || details.schemaPreview;
+  if (!hasContent) return null;
+
+  return (
+    <div className="ml-7 mt-1">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <ChevronDown className={cn("h-3 w-3 transition-transform", open && "rotate-180")} />
+        <span>Detalhes</span>
+      </button>
+      {open && (
+        <div className="mt-1 rounded-md border bg-muted/50 p-2 text-xs text-muted-foreground space-y-1 animate-fade-in">
+          {details.sent && <p><strong>Enviado:</strong> {details.sent}</p>}
+          {details.schemaPreview && (
+            <div>
+              <strong>Colunas categóricas mapeadas:</strong>
+              <ul className="ml-3 mt-0.5">
+                {Object.entries(details.schemaPreview).map(([tbl, cols]) => (
+                  <li key={tbl}>{tbl}: {Object.entries(cols).map(([c, n]) => `${c}(${n})`).join(", ")}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {details.requestedByAI && (
+            <div>
+              <strong>Solicitado pela IA:</strong>
+              <ul className="ml-3 mt-0.5">
+                {details.requestedByAI.map((item, i) => <li key={i}>{item}</li>)}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function ChatPage() {
   const { user } = useAuth();
@@ -180,6 +229,7 @@ export default function ChatPage() {
       const decoder = new TextDecoder();
       let textBuffer = "";
       let streamingStarted = false;
+      let pendingEventType: string | null = null;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -191,61 +241,67 @@ export default function ChatPage() {
           let line = textBuffer.slice(0, newlineIndex);
           textBuffer = textBuffer.slice(newlineIndex + 1);
           if (line.endsWith("\r")) line = line.slice(0, -1);
-          if (line.trim() === "") continue;
+          if (line.trim() === "") { pendingEventType = null; continue; }
 
-          // Handle custom SSE events
           if (line.startsWith("event: ")) {
+            pendingEventType = line.slice(7).trim();
             continue;
           }
 
-          if (line.startsWith("data: ") && !streamingStarted) {
+          if (line.startsWith("data: ")) {
             const jsonStr = line.slice(6).trim();
+
+            // Handle named SSE events
+            if (pendingEventType === "status") {
+              try {
+                const parsed = JSON.parse(jsonStr);
+                if (parsed.step && parsed.message) {
+                  setStatusSteps(prev => [...prev, {
+                    step: parsed.step,
+                    message: parsed.message,
+                    details: parsed.details,
+                  }]);
+                  setCurrentStep(parsed.step);
+                }
+              } catch { /* ignore */ }
+              pendingEventType = null;
+              continue;
+            }
+
+            if (pendingEventType === "context_data") {
+              try {
+                capturedContextData = JSON.parse(jsonStr) as ContextData;
+              } catch { /* ignore */ }
+              pendingEventType = null;
+              continue;
+            }
+
+            pendingEventType = null;
+
+            if (jsonStr === "[DONE]") break;
+
             try {
               const parsed = JSON.parse(jsonStr);
-              // Handle context_data event
-              if (parsed && typeof parsed === "object" && !parsed.step && !parsed.choices) {
-                // Check if it looks like context data (has table keys with label+rows)
-                const keys = Object.keys(parsed);
-                if (keys.length > 0 && parsed[keys[0]]?.rows) {
-                  capturedContextData = parsed as ContextData;
-                  continue;
+              const content = parsed.choices?.[0]?.delta?.content;
+              if (content) {
+                if (!streamingStarted) {
+                  streamingStarted = true;
+                  setStatusSteps([]);
+                  setCurrentStep(null);
                 }
+                assistantSoFar += content;
+                setMessages((prev) => {
+                  const last = prev[prev.length - 1];
+                  if (last?.role === "assistant") {
+                    return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: assistantSoFar, contextData: capturedContextData } : m));
+                  }
+                  return [...prev, { role: "assistant", content: assistantSoFar, contextData: capturedContextData }];
+                });
               }
-              if (parsed.step && parsed.message) {
-                setStatusSteps(prev => [...prev, { step: parsed.step, message: parsed.message }]);
-                setCurrentStep(parsed.step);
-                continue;
-              }
-            } catch { /* not a status event, continue */ }
-          }
-
-          if (line.startsWith(":") || line.trim() === "") continue;
-          if (!line.startsWith("data: ")) continue;
-
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === "[DONE]") break;
-
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content;
-            if (content) {
-              if (!streamingStarted) {
-                streamingStarted = true;
-                setStatusSteps([]);
-                setCurrentStep(null);
-              }
-              assistantSoFar += content;
-              setMessages((prev) => {
-                const last = prev[prev.length - 1];
-                if (last?.role === "assistant") {
-                  return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: assistantSoFar, contextData: capturedContextData } : m));
-                }
-                return [...prev, { role: "assistant", content: assistantSoFar, contextData: capturedContextData }];
-              });
+            } catch {
+              textBuffer = line + "\n" + textBuffer;
+              break;
             }
-          } catch {
-            textBuffer = line + "\n" + textBuffer;
-            break;
           }
         }
       }
@@ -272,7 +328,7 @@ export default function ChatPage() {
     for (const [, { label, rows }] of Object.entries(contextData)) {
       if (rows.length === 0) continue;
       const ws = XLSX.utils.json_to_sheet(rows);
-      const sheetName = label.slice(0, 31); // Excel limit
+      const sheetName = label.slice(0, 31);
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
     }
     XLSX.writeFile(wb, "dados_analise.xlsx");
@@ -419,7 +475,7 @@ export default function ChatPage() {
                   <Bot className="h-4 w-4 text-primary-foreground" />
                 </div>
                 <Card className="p-4 w-full max-w-[80%]">
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {stepOrder.map((stepKey) => {
                       const completed = statusSteps.some(s => s.step === stepKey) &&
                         stepOrder.indexOf(currentStep || "") > stepOrder.indexOf(stepKey);
@@ -429,26 +485,29 @@ export default function ChatPage() {
                       if (pending) return null;
 
                       const Icon = config.icon;
-                      const statusMsg = statusSteps.find(s => s.step === stepKey)?.message || config.label;
+                      const stepData = statusSteps.find(s => s.step === stepKey);
+                      const statusMsg = stepData?.message || config.label;
 
                       return (
-                        <div
-                          key={stepKey}
-                          className={cn(
-                            "flex items-center gap-3 text-sm transition-all duration-300",
-                            active ? "text-foreground" : "text-muted-foreground"
-                          )}
-                        >
-                          {completed ? (
-                            <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
-                          ) : active ? (
-                            <Loader2 className="h-4 w-4 animate-spin text-primary flex-shrink-0" />
-                          ) : (
-                            <Icon className="h-4 w-4 flex-shrink-0" />
-                          )}
-                          <span className={cn(completed && "line-through opacity-60")}>
-                            {statusMsg}
-                          </span>
+                        <div key={stepKey}>
+                          <div
+                            className={cn(
+                              "flex items-center gap-3 text-sm transition-all duration-300",
+                              active ? "text-foreground" : "text-muted-foreground"
+                            )}
+                          >
+                            {completed ? (
+                              <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                            ) : active ? (
+                              <Loader2 className="h-4 w-4 animate-spin text-primary flex-shrink-0" />
+                            ) : (
+                              <Icon className="h-4 w-4 flex-shrink-0" />
+                            )}
+                            <span className={cn(completed && "line-through opacity-60")}>
+                              {statusMsg}
+                            </span>
+                          </div>
+                          <StatusDetailsBlock details={stepData?.details} />
                         </div>
                       );
                     })}
