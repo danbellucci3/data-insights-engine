@@ -148,6 +148,7 @@ export default function ChatPage() {
     }
 
     let assistantSoFar = "";
+    let capturedContextData: ContextData | undefined;
     const allMessages = [...messages, userMsg];
 
     try {
