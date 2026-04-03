@@ -16,6 +16,16 @@ const tableSchemas: Record<string, string[]> = {
   fornecedores: ["empresa", "visao", "safra", "nome_fornecedor", "data_inicio_contrato", "data_fim_contrato", "valor_contrato"],
 };
 
+// Continuous (numeric) columns - we do NOT send their distinct values
+const continuousColumns = new Set([
+  "valor_bruto", "receita_bruta_dia", "remuneracao_dia_cdi", "imposto_renda",
+  "faturamento", "custos", "despesa", "impostos", "ebitda", "lucro_liquido",
+  "ativo_circulante", "ativo_nao_circulante", "passivo_circulante",
+  "passivo_nao_circulante", "patrimonio_liquido",
+  "total_entradas", "total_saidas", "saldo_conta_corrente",
+  "valor", "valor_contrato",
+]);
+
 const tableLabels: Record<string, string> = {
   investimentos: "Investimentos",
   dre: "DRE",
