@@ -223,6 +223,7 @@ REGRAS:
         let contextStr = "";
         if (plan.needs_data && plan.tables && plan.tables.length > 0) {
           const dataParts: string[] = [];
+          const contextDataForDownload: Record<string, { label: string; rows: any[] }> = {};
 
           // === STATUS: fetching data ===
           controller.enqueue(sseEvent("status", { step: "fetching", message: "Buscando dados solicitados pela IA..." }));
@@ -273,11 +274,20 @@ REGRAS:
                 return rest;
               });
               dataParts.push(`### ${tableLabels[tableName] || tableName} (${cleanRows.length} registros):\n${JSON.stringify(cleanRows)}`);
+              contextDataForDownload[tableName] = {
+                label: tableLabels[tableName] || tableName,
+                rows: cleanRows,
+              };
             } else {
               dataParts.push(`### ${tableLabels[tableName] || tableName}: Nenhum registro encontrado com os filtros aplicados.`);
             }
           }
           contextStr = dataParts.join("\n\n");
+
+          // Send the raw context data to the client for download
+          if (Object.keys(contextDataForDownload).length > 0) {
+            controller.enqueue(sseEvent("context_data", contextDataForDownload));
+          }
         }
 
         // === STATUS: generating response ===

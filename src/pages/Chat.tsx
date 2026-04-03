@@ -11,12 +11,14 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Send, Bot, User, Plus, MessageSquare, Trash2, X,
   TrendingUp, DollarSign, BarChart3, PieChart, FileText, Search,
-  Loader2, CheckCircle2, Database, BrainCircuit
+  Loader2, CheckCircle2, Database, BrainCircuit, Download
 } from "lucide-react";
 import ChatChart, { parseChartBlocks } from "@/components/ChatChart";
 import { cn } from "@/lib/utils";
+import * as XLSX from "xlsx";
 
-type Msg = { role: "user" | "assistant"; content: string };
+type ContextData = Record<string, { label: string; rows: any[] }>;
+type Msg = { role: "user" | "assistant"; content: string; contextData?: ContextData };
 type Conversation = { id: string; title: string | null; updated_at: string };
 type StatusStep = {
   step: "planning" | "analyzing" | "fetching" | "responding";
@@ -146,6 +148,7 @@ export default function ChatPage() {
     }
 
     let assistantSoFar = "";
+    let capturedContextData: ContextData | undefined;
     const allMessages = [...messages, userMsg];
 
     try {
@@ -190,17 +193,24 @@ export default function ChatPage() {
           if (line.endsWith("\r")) line = line.slice(0, -1);
           if (line.trim() === "") continue;
 
-          // Handle custom status events
-          if (line.startsWith("event: status")) {
-            // Next data line has the payload
+          // Handle custom SSE events
+          if (line.startsWith("event: ")) {
             continue;
           }
 
           if (line.startsWith("data: ") && !streamingStarted) {
             const jsonStr = line.slice(6).trim();
-            // Try to parse as status event
             try {
               const parsed = JSON.parse(jsonStr);
+              // Handle context_data event
+              if (parsed && typeof parsed === "object" && !parsed.step && !parsed.choices) {
+                // Check if it looks like context data (has table keys with label+rows)
+                const keys = Object.keys(parsed);
+                if (keys.length > 0 && parsed[keys[0]]?.rows) {
+                  capturedContextData = parsed as ContextData;
+                  continue;
+                }
+              }
               if (parsed.step && parsed.message) {
                 setStatusSteps(prev => [...prev, { step: parsed.step, message: parsed.message }]);
                 setCurrentStep(parsed.step);
@@ -228,9 +238,9 @@ export default function ChatPage() {
               setMessages((prev) => {
                 const last = prev[prev.length - 1];
                 if (last?.role === "assistant") {
-                  return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: assistantSoFar } : m));
+                  return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: assistantSoFar, contextData: capturedContextData } : m));
                 }
-                return [...prev, { role: "assistant", content: assistantSoFar }];
+                return [...prev, { role: "assistant", content: assistantSoFar, contextData: capturedContextData }];
               });
             }
           } catch {
@@ -255,6 +265,17 @@ export default function ChatPage() {
       setStatusSteps([]);
       setCurrentStep(null);
     }
+  };
+
+  const downloadContextData = (contextData: ContextData) => {
+    const wb = XLSX.utils.book_new();
+    for (const [, { label, rows }] of Object.entries(contextData)) {
+      if (rows.length === 0) continue;
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const sheetName = label.slice(0, 31); // Excel limit
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    }
+    XLSX.writeFile(wb, "dados_analise.xlsx");
   };
 
   const stepOrder = ["planning", "analyzing", "fetching", "responding"];
@@ -355,21 +376,34 @@ export default function ChatPage() {
                     <Bot className="h-4 w-4 text-primary-foreground" />
                   </div>
                 )}
-                <Card className={`max-w-[80%] p-4 ${msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-card"}`}>
-                  {msg.role === "assistant" ? (
-                    <div className="prose prose-sm max-w-none dark:prose-invert">
-                      {parseChartBlocks(msg.content).map((seg, j) =>
-                        seg.type === "chart" ? (
-                          <ChatChart key={j} chart={seg.value} />
-                        ) : (
-                          <ReactMarkdown key={j} remarkPlugins={[remarkGfm]}>{seg.value}</ReactMarkdown>
-                        )
-                      )}
-                    </div>
-                  ) : (
-                    <p className="text-sm">{msg.content}</p>
+                <div className="max-w-[80%] space-y-2">
+                  <Card className={`p-4 ${msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-card"}`}>
+                    {msg.role === "assistant" ? (
+                      <div className="prose prose-sm max-w-none dark:prose-invert">
+                        {parseChartBlocks(msg.content).map((seg, j) =>
+                          seg.type === "chart" ? (
+                            <ChatChart key={j} chart={seg.value} />
+                          ) : (
+                            <ReactMarkdown key={j} remarkPlugins={[remarkGfm]}>{seg.value}</ReactMarkdown>
+                          )
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm">{msg.content}</p>
+                    )}
+                  </Card>
+                  {msg.role === "assistant" && msg.contextData && Object.keys(msg.contextData).length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2 text-xs"
+                      onClick={() => downloadContextData(msg.contextData!)}
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Baixar dados utilizados
+                    </Button>
                   )}
-                </Card>
+                </div>
                 {msg.role === "user" && (
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted">
                     <User className="h-4 w-4 text-muted-foreground" />
