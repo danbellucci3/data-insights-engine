@@ -278,6 +278,11 @@ REGRAS:
             }
           }
           contextStr = dataParts.join("\n\n");
+
+          // Send the raw context data to the client for download
+          if (Object.keys(contextDataForDownload).length > 0) {
+            controller.enqueue(sseEvent("context_data", contextDataForDownload));
+          }
         }
 
         // === STATUS: generating response ===
