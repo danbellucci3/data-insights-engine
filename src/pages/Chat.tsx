@@ -11,12 +11,14 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Send, Bot, User, Plus, MessageSquare, Trash2, X,
   TrendingUp, DollarSign, BarChart3, PieChart, FileText, Search,
-  Loader2, CheckCircle2, Database, BrainCircuit
+  Loader2, CheckCircle2, Database, BrainCircuit, Download
 } from "lucide-react";
 import ChatChart, { parseChartBlocks } from "@/components/ChatChart";
 import { cn } from "@/lib/utils";
+import * as XLSX from "xlsx";
 
-type Msg = { role: "user" | "assistant"; content: string };
+type ContextData = Record<string, { label: string; rows: any[] }>;
+type Msg = { role: "user" | "assistant"; content: string; contextData?: ContextData };
 type Conversation = { id: string; title: string | null; updated_at: string };
 type StatusStep = {
   step: "planning" | "analyzing" | "fetching" | "responding";
