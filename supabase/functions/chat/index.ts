@@ -274,6 +274,10 @@ REGRAS:
                 return rest;
               });
               dataParts.push(`### ${tableLabels[tableName] || tableName} (${cleanRows.length} registros):\n${JSON.stringify(cleanRows)}`);
+              contextDataForDownload[tableName] = {
+                label: tableLabels[tableName] || tableName,
+                rows: cleanRows,
+              };
             } else {
               dataParts.push(`### ${tableLabels[tableName] || tableName}: Nenhum registro encontrado com os filtros aplicados.`);
             }
