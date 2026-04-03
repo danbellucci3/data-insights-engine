@@ -193,9 +193,8 @@ export default function ChatPage() {
           if (line.endsWith("\r")) line = line.slice(0, -1);
           if (line.trim() === "") continue;
 
-          // Handle custom status events
-          if (line.startsWith("event: status")) {
-            // Next data line has the payload
+          // Handle custom SSE events
+          if (line.startsWith("event: ")) {
             continue;
           }
 
