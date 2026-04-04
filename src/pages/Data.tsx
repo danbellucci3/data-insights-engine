@@ -198,6 +198,12 @@ export default function DataPage() {
               {schema.label} — {totalCount} registros
             </CardTitle>
             <div className="flex gap-2">
+              {totalCount > 0 && (
+                <Button variant="outline" size="sm" onClick={handleDownload} disabled={downloading}>
+                  <Download className={`mr-1 h-4 w-4 ${downloading ? "animate-spin" : ""}`} />
+                  Baixar Excel
+                </Button>
+              )}
               <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
                 <RefreshCw className={`mr-1 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
                 Atualizar
