@@ -96,6 +96,51 @@ export default function DataPage() {
     setDeleting(null);
   };
 
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownload = async () => {
+    if (!user || !schema || !allowedTables.includes(selectedTable)) return;
+    setDownloading(true);
+    try {
+      // Fetch all rows (paginate past the 1000 limit)
+      let allRows: Record<string, any>[] = [];
+      let from = 0;
+      const batchSize = 1000;
+      while (true) {
+        const { data: rows, error } = await supabase
+          .from(selectedTable as ValidTableName)
+          .select("*")
+          .order("created_at", { ascending: false })
+          .range(from, from + batchSize - 1);
+        if (error) {
+          toast({ title: "Erro ao exportar", description: error.message, variant: "destructive" });
+          setDownloading(false);
+          return;
+        }
+        if (!rows || rows.length === 0) break;
+        allRows = allRows.concat(rows);
+        if (rows.length < batchSize) break;
+        from += batchSize;
+      }
+
+      // Map to friendly column names
+      const mapped = allRows.map((row) => {
+        const obj: Record<string, any> = {};
+        for (const col of schema.columns) {
+          obj[col.label] = row[col.key] ?? "";
+        }
+        return obj;
+      });
+
+      const ws = XLSX.utils.json_to_sheet(mapped);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, schema.label.slice(0, 31));
+      XLSX.writeFile(wb, `${schema.label}.xlsx`);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   const handleDeleteAll = async () => {
     if (!user || !schema) return;
     const { error } = await supabase
